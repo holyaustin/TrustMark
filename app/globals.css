@@ -6,6 +6,7 @@
   /* Brand Palette */
   --color-royal: #002366;
   --color-royal-light: #4169e1;
+  --color-royal-dark: #001a4d;
   
   /* Light Mode Specific - More Saturated */
   --color-sky-vibrant: #bae6fd;
@@ -15,7 +16,8 @@
   --color-navy-deep: #001a4d;
   
   /* Container Settings */
-  --container-custom-padding: 1rem;
+  --container-custom-padding-x: 1rem;
+  --container-custom-padding-y: 1rem;
   --container-custom-max-width: 80rem;
 }
 
@@ -46,27 +48,57 @@
   }
 }
 
-/* Container Utility Classes */
+/* Container Utility Classes with X and Y padding */
 @layer components {
   .container-custom {
     width: 100%;
     max-width: var(--container-custom-max-width);
     margin-left: auto;
     margin-right: auto;
-    padding-left: var(--container-custom-padding);
-    padding-right: var(--container-custom-padding);
+    padding-left: var(--container-custom-padding-x);
+    padding-right: var(--container-custom-padding-x);
+    padding-top: var(--container-custom-padding-y);
+    padding-bottom: var(--container-custom-padding-y);
   }
   
   @screen sm {
     .container-custom {
-      --container-custom-padding: 1.5rem;
+      --container-custom-padding-x: 1.5rem;
+      --container-custom-padding-y: 1.25rem;
     }
   }
   
   @screen lg {
     .container-custom {
-      --container-custom-padding: 2rem;
+      --container-custom-padding-x: 2rem;
+      --container-custom-padding-y: 1.5rem;
     }
+  }
+}
+
+/* Button Styles - Visible in Light Mode */
+@layer components {
+  .btn-primary {
+    @apply bg-royal text-white px-6 py-3 rounded-xl font-bold active:scale-95 transition-all duration-200;
+    @apply shadow-lg hover:shadow-royal/30 hover:bg-royal-light;
+    @apply dark:bg-royal-light dark:hover:bg-royal;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-royal border-2 border-royal px-6 py-3 rounded-xl font-bold transition-all duration-200;
+    @apply hover:bg-royal hover:text-white hover:border-transparent shadow-md;
+    @apply dark:bg-transparent dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-royal;
+  }
+  
+  .btn-outline {
+    @apply bg-transparent border-2 border-royal text-royal px-6 py-3 rounded-xl font-bold transition-all duration-200;
+    @apply hover:bg-royal hover:text-white shadow-md;
+    @apply dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-royal;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition-all duration-200;
+    @apply hover:bg-red-700 shadow-md;
   }
 }
 
@@ -81,12 +113,6 @@
   @apply dark:bg-black/60 dark:border-white/10 dark:shadow-none;
 }
 
-@utility btn-primary {
-  @apply bg-royal text-white px-8 py-4 rounded-2xl font-black active:scale-95 transition-all;
-  @apply shadow-lg hover:shadow-royal/20;
-  @apply dark:bg-royal-light;
-}
-
 /* Additional responsive utilities */
 @utility section-spacing {
   @apply py-12 md:py-16 lg:py-20;
@@ -94,4 +120,15 @@
 
 @utility card-padding {
   @apply p-4 sm:p-6 md:p-8;
+}
+
+/* Margin utilities */
+@utility mt-section {
+  margin-top: 3rem;
+}
+
+@media (min-width: 768px) {
+  .mt-section {
+    margin-top: 4rem;
+  }
 }

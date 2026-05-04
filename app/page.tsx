@@ -26,22 +26,22 @@ export default function LandingPage() {
 
   return (
     <div className="section-spacing">
-      {/* Hero Section - Africa Focused */}
+      {/* Hero Section - Updated without "Africa" text */}
       <section className="container-custom mb-16 md:mb-24">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-white/50 dark:bg-royal-900/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
-            <Globe className="w-4 h-4 text-royal-600 dark:text-royal-300" />
-            <span className="text-sm font-medium text-royal-700 dark:text-royal-300">TrustMark for Africa</span>
+            <Shield className="w-4 h-4 text-royal-600 dark:text-royal-300" />
+            <span className="text-sm font-medium text-royal-700 dark:text-royal-300">TrustMark Verified</span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-royal-900 dark:text-white mb-4">
-            Trust in Social Commerce Across Africa
+            Trust in Social Commerce
           </h1>
           <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 mb-8">
             The digital trust badge that proves you're a legitimate seller. 
-            Stop scammers. Build buyer confidence. Grow your business across the continent.
+            Stop scammers. Build buyer confidence. Grow your business.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="primary" size="lg" onClick={() => setStep('number')} className="shadow-xl">
+            <Button variant="primary" size="lg" onClick={() => setStep('number')} className="shadow-xl bg-royal-600 hover:bg-royal-700">
               Get Your Badge → <span className="text-sm ml-1">(For Sellers)</span>
             </Button>
             <Link href="/verify">
@@ -67,6 +67,7 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Rest of the page remains the same */}
       {/* Trust Badge Preview */}
       <section className="container-custom mb-16 md:mb-24" id="how-it-works">
         <div className="text-center mb-8 md:mb-12">
@@ -113,10 +114,10 @@ export default function LandingPage() {
         <div className="container-custom">
           <div className="text-center mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">
-              TrustMark Across Africa
+              TrustMark Platform
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Empowering sellers and protecting buyers across the continent
+              Empowering sellers and protecting buyers
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
@@ -133,8 +134,8 @@ export default function LandingPage() {
               <p className="text-gray-600 dark:text-gray-400 mt-2">Fraud Reduction</p>
             </div>
             <div className="p-6">
-              <p className="text-3xl md:text-4xl font-bold text-royal-600 dark:text-royal-400">12+</p>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">African Countries</p>
+              <p className="text-3xl md:text-4xl font-bold text-royal-600 dark:text-royal-400">24/7</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">SIM Monitoring</p>
             </div>
           </div>
         </div>
@@ -184,8 +185,8 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="container-custom pb-12 md:pb-16">
         <Card className="card-padding text-center bg-gradient-to-r from-royal-600 to-royal-800 dark:from-royal-700 dark:to-royal-900">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-            Ready to Build Trust Across Africa?
+          <h2 className="text-2xl md:text-3xl font-bold text-royal-600 mb-3">
+            Ready to Build Trust?
           </h2>
           <p className="text-royal-100 mb-6 max-w-md mx-auto">
             Join thousands of verified sellers who are growing their business with TrustMark.
@@ -200,7 +201,7 @@ export default function LandingPage() {
               Get Your Badge →
             </Button>
             <Link href="/verify">
-              <Button variant="outline" size="lg" className="bg-transparent text-white border-white hover:bg-white/10 shadow-xl">
+              <Button variant="outline" size="lg" className="bg-royal-600 text-black border-royal-900 hover:bg-blue/10 shadow-xl">
                 Verify a Seller →
               </Button>
             </Link>
