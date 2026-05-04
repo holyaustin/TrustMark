@@ -1,13 +1,7 @@
 'use client';
 
-import { useTheme as useNextTheme } from 'next-themes';
+import { useThemeProvider } from '@/components/layout/ThemeProvider';
 
 export function useTheme() {
-  const { theme, setTheme, resolvedTheme } = useNextTheme();
-  
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  };
-  
-  return { theme, resolvedTheme, toggleTheme, isDark: resolvedTheme === 'dark' };
+  return useThemeProvider();
 }

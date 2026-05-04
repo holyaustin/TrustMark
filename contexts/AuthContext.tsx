@@ -33,7 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
       }
-    } catch {
+    } catch (error) {
+      console.error('Auth refresh error:', error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (phoneNumber: string) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneNumber }),
     });
     if (!res.ok) throw new Error('Login failed');
@@ -54,8 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     setUser(null);
+    Cookies.remove('trustmark_token');
   };
 
   return (

@@ -4,14 +4,20 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
-import { Sun, Moon, LogOut, User, Menu, X, Shield, Home, Info, Award } from 'lucide-react';
+import { Sun, Moon, LogOut, User, Menu, X, Shield, Home, Info, Award, LogIn } from 'lucide-react';
 import Button from '@/components/ui/Button';
 
 export default function Header() {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, mounted: themeMounted } = useTheme();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -38,6 +44,14 @@ export default function Header() {
     { href: '/how-it-works', label: 'How It Works', icon: Info },
     { href: '/pricing', label: 'Pricing', icon: Award },
   ];
+
+  // Don't render theme-dependent content until mounted on client
+  const renderThemeIcon = () => {
+    if (!mounted || !themeMounted) {
+      return <Moon size={20} />;
+    }
+    return isDark ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} />;
+  };
 
   return (
     <>
@@ -73,31 +87,44 @@ export default function Header() {
 
             {/* Right Actions */}
             <div className="flex items-center space-x-2 md:space-x-3">
+              {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 aria-label="Toggle theme"
               >
-                {isDark ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} />}
+                {renderThemeIcon()}
               </button>
 
-              {user ? (
+              {/* Desktop Auth Buttons */}
+              {mounted && (
                 <div className="hidden md:flex items-center space-x-3">
-                  <Link href="/dashboard">
-                    <Button variant="secondary" size="sm">
-                      <User size={16} className="mr-1" /> Dashboard
-                    </Button>
-                  </Link>
-                  <Button variant="danger" size="sm" onClick={logout}>
-                    <LogOut size={16} className="mr-1" /> Logout
-                  </Button>
+                  {user ? (
+                    <>
+                      <Link href="/dashboard">
+                        <Button variant="secondary" size="sm">
+                          <User size={16} className="mr-1" /> Dashboard
+                        </Button>
+                      </Link>
+                      <Button variant="danger" size="sm" onClick={logout}>
+                        <LogOut size={16} className="mr-1" /> Logout
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/login">
+                        <Button variant="outline" size="sm">
+                          <LogIn size={16} className="mr-1" /> Login
+                        </Button>
+                      </Link>
+                      <Link href="/get-verified">
+                        <Button variant="primary" size="sm" className="shadow-md hover:shadow-lg">
+                          Get Verified
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <Link href="/get-verified" className="hidden md:block">
-                  <Button variant="primary" size="sm" className="shadow-md hover:shadow-lg">
-                    Get Verified
-                  </Button>
-                </Link>
               )}
 
               {/* Mobile Menu Button */}
@@ -127,6 +154,7 @@ export default function Header() {
         }`}
       >
         <div className="flex flex-col h-full">
+          {/* Mobile Menu Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <Shield className="w-6 h-6 text-royal-600" />
@@ -137,6 +165,7 @@ export default function Header() {
             </button>
           </div>
 
+          {/* Mobile Navigation Links */}
           <nav className="flex-1 py-6 px-4">
             <ul className="space-y-4">
               {navLinks.map((link) => (
@@ -151,40 +180,62 @@ export default function Header() {
                   </Link>
                 </li>
               ))}
-              {user && (
-                <li>
-                  <Link
-                    href="/dashboard"
-                    onClick={closeMenu}
-                    className="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:text-royal-600 dark:hover:text-royal-400 transition py-2"
-                  >
-                    <User size={20} />
-                    <span className="font-medium">Dashboard</span>
-                  </Link>
-                </li>
+              {mounted && user && (
+                <>
+                  <li>
+                    <Link
+                      href="/dashboard"
+                      onClick={closeMenu}
+                      className="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:text-royal-600 dark:hover:text-royal-400 transition py-2"
+                    >
+                      <User size={20} />
+                      <span className="font-medium">Dashboard</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        logout();
+                        closeMenu();
+                      }}
+                      className="w-full flex items-center space-x-3 text-red-600 hover:text-red-700 transition py-2"
+                    >
+                      <LogOut size={20} />
+                      <span className="font-medium">Logout</span>
+                    </button>
+                  </li>
+                </>
+              )}
+              {mounted && !user && (
+                <>
+                  <li>
+                    <Link
+                      href="/login"
+                      onClick={closeMenu}
+                      className="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:text-royal-600 dark:hover:text-royal-400 transition py-2"
+                    >
+                      <LogIn size={20} />
+                      <span className="font-medium">Login</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/get-verified"
+                      onClick={closeMenu}
+                      className="block w-full"
+                    >
+                      <Button variant="primary" className="w-full">
+                        Get Verified
+                      </Button>
+                    </Link>
+                  </li>
+                </>
               )}
             </ul>
           </nav>
 
+          {/* Mobile Menu Footer */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
-            {user ? (
-              <button
-                onClick={() => {
-                  logout();
-                  closeMenu();
-                }}
-                className="w-full flex items-center justify-center space-x-2 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition"
-              >
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            ) : (
-              <Link href="/get-verified" onClick={closeMenu} className="block">
-                <Button variant="primary" className="w-full">
-                  Get Verified
-                </Button>
-              </Link>
-            )}
             <button
               onClick={() => {
                 toggleTheme();
@@ -192,8 +243,8 @@ export default function Header() {
               }}
               className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-700 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition"
             >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-              <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+              {mounted && themeMounted ? (isDark ? <Sun size={18} /> : <Moon size={18} />) : <Moon size={18} />}
+              <span>{mounted && themeMounted ? (isDark ? 'Light Mode' : 'Dark Mode') : 'Dark Mode'}</span>
             </button>
           </div>
         </div>
