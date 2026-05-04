@@ -1,43 +1,97 @@
 @import "tailwindcss";
 
-/* 1. Enable manual dark mode toggle via a 'dark' class on <html> */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Brand Palette */
   --color-royal: #002366;
-  --color-royal-vibrant: #0046cc;
   --color-royal-light: #4169e1;
-  --color-black: #000000;
-  --color-white: #ffffff;
-
-  /* Catchy Gradients - Using 135deg for better mobile flow */
-  --bg-catchy-light: linear-gradient(135deg, #e0e7ff 0%, #ffffff 50%, #f1f5f9 100%);
-  --bg-catchy-dark: linear-gradient(135deg, #001a4d 0%, #000000 70%, #050505 100%);
+  
+  /* Light Mode Specific - More Saturated */
+  --color-sky-vibrant: #bae6fd;
+  --color-blue-soft: #60a5fa;
+  
+  /* Dark Mode Specific */
+  --color-navy-deep: #001a4d;
+  
+  /* Container Settings */
+  --container-custom-padding: 1rem;
+  --container-custom-max-width: 80rem;
 }
 
 @layer base {
   body {
-    /* Smooth transitions for theme switching */
-    @apply transition-colors duration-500 antialiased min-h-screen text-slate-900 bg-white;
-    background: var(--bg-catchy-light) fixed;
+    @apply transition-colors duration-500 antialiased min-h-screen text-slate-900;
+    
+    /* REVISED LIGHT MODE: Very visible blue gradient */
+    background-color: var(--color-sky-vibrant);
+    background-image: 
+      linear-gradient(135deg, 
+        #bae6fd 0%, 
+        #93c5fd 50%, 
+        #bfdbfe 100%
+      );
+    background-attachment: fixed;
   }
 
   .dark body {
-    @apply text-white bg-black;
-    background: var(--bg-catchy-dark) fixed;
+    @apply text-white;
+    
+    /* DARK MODE: Remaining deep and premium */
+    background-color: #000000;
+    background-image: 
+      radial-gradient(at 0% 0%, var(--color-navy-deep) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, #020617 0px, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
-/* 2. Enhanced UI Utilities */
+/* Container Utility Classes */
+@layer components {
+  .container-custom {
+    width: 100%;
+    max-width: var(--container-custom-max-width);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--container-custom-padding);
+    padding-right: var(--container-custom-padding);
+  }
+  
+  @screen sm {
+    .container-custom {
+      --container-custom-padding: 1.5rem;
+    }
+  }
+  
+  @screen lg {
+    .container-custom {
+      --container-custom-padding: 2rem;
+    }
+  }
+}
+
+/* UI Utilities tuned for the visible blue background */
 @utility glass-effect {
-  /* High-end mobile look: subtle borders and blur */
-  @apply backdrop-blur-xl border rounded-2xl transition-all;
-  @apply border-black/5 bg-white/60 shadow-xl shadow-royal/5;
-  @apply dark:border-white/10 dark:bg-white/5 dark:shadow-none;
+  @apply backdrop-blur-2xl border transition-all duration-500 rounded-3xl;
+  
+  /* Light: High contrast white-glass on blue */
+  @apply bg-white/70 border-white/40 shadow-2xl shadow-royal/10;
+  
+  /* Dark: Deep translucent black */
+  @apply dark:bg-black/60 dark:border-white/10 dark:shadow-none;
 }
 
 @utility btn-primary {
-  @apply bg-royal text-white px-6 py-3 rounded-xl font-bold active:scale-95 transition-transform;
-  @apply hover:bg-royal-vibrant dark:bg-royal-light dark:hover:bg-royal;
+  @apply bg-royal text-white px-8 py-4 rounded-2xl font-black active:scale-95 transition-all;
+  @apply shadow-lg hover:shadow-royal/20;
+  @apply dark:bg-royal-light;
+}
+
+/* Additional responsive utilities */
+@utility section-spacing {
+  @apply py-12 md:py-16 lg:py-20;
+}
+
+@utility card-padding {
+  @apply p-4 sm:p-6 md:p-8;
 }

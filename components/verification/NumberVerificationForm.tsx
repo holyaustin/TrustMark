@@ -3,8 +3,15 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import { X } from 'lucide-react';
 
-export default function NumberVerificationForm({ onSuccess }: { onSuccess: (userId: string) => void }) {
+export default function NumberVerificationForm({ 
+  onSuccess, 
+  onClose 
+}: { 
+  onSuccess: (userId: string) => void;
+  onClose: () => void;
+}) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -32,8 +39,16 @@ export default function NumberVerificationForm({ onSuccess }: { onSuccess: (user
   };
 
   return (
-    <Card className="p-6">
-      <h2 className="text-2xl font-bold mb-2">Get Your TrustMark Badge</h2>
+    <Card className="p-6 relative">
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+        aria-label="Close"
+      >
+        <X size={20} />
+      </button>
+      
+      <h2 className="text-2xl font-bold mb-2 pr-8">Get Your TrustMark Badge</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">Step 1 of 2: Verify your phone number</p>
       
       {error && (
