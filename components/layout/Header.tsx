@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
-import { Sun, Moon, LogOut, User, Menu, X, Shield, Home, QrCode, LayoutDashboard, Info } from 'lucide-react';
+import { Sun, Moon, LogOut, User, Menu, X, Shield, Home, QrCode, LayoutDashboard, Info, Briefcase, Phone, FileText, ShoppingBag, Award } from 'lucide-react';
 import Button from '@/components/ui/Button';
 
 export default function Header() {
@@ -13,7 +13,6 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Close mobile menu on resize to desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
@@ -24,7 +23,6 @@ export default function Header() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Add scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -33,15 +31,15 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu when clicking a link
   const closeMenu = () => setIsMobileMenuOpen(false);
 
-  // Navigation links
   const navLinks = [
     { href: '/', label: 'Home', icon: Home },
     { href: '/how-it-works', label: 'How It Works', icon: Info },
+    { href: '/for-sellers', label: 'For Sellers', icon: Briefcase },
+    { href: '/for-buyers', label: 'For Buyers', icon: ShoppingBag },
     { href: '/verify', label: 'Verify a Seller', icon: QrCode },
-    { href: '/pricing', label: 'Pricing', icon: Shield },
+    { href: '/pricing', label: 'Pricing', icon: Award },
   ];
 
   const authLinks = user
@@ -55,20 +53,20 @@ export default function Header() {
       <header
         className={`sticky top-0 z-50 transition-all duration-300 ${
           scrolled
-            ? 'bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-md'
+            ? 'bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-lg'
             : 'bg-white dark:bg-black'
         } border-b border-gray-200 dark:border-gray-800`}
       >
-        <div className="container-custom py-3 md:py-4">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex justify-between items-center">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2" onClick={closeMenu}>
+            <Link href="/" className="flex items-center space-x-2 flex-shrink-0" onClick={closeMenu}>
               <Shield className="w-6 h-6 md:w-7 md:h-7 text-royal-600 dark:text-royal-400" />
               <span className="text-xl md:text-2xl font-bold text-royal-800 dark:text-royal-400">
                 TrustMark
               </span>
               <span className="hidden md:inline-block text-xs bg-royal-100 dark:bg-royal-900 px-2 py-0.5 rounded-full">
-                Verified
+                Africa
               </span>
             </Link>
 
@@ -100,7 +98,7 @@ export default function Header() {
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 aria-label="Toggle theme"
               >
-                {isDark ? <Sun size={20} /> : <Moon size={20} />}
+                {isDark ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} />}
               </button>
 
               {user ? (
@@ -110,8 +108,10 @@ export default function Header() {
                   </Button>
                 </div>
               ) : (
-                <Link href="/" className="hidden md:block">
-                  <Button variant="primary" size="sm">Get Verified</Button>
+                <Link href="/get-verified" className="hidden md:block">
+                  <Button variant="primary" size="sm" className="shadow-md hover:shadow-lg transition">
+                    Get Verified
+                  </Button>
                 </Link>
               )}
 
@@ -137,12 +137,11 @@ export default function Header() {
       />
 
       <div
-        className={`fixed top-0 right-0 h-full w-64 bg-white dark:bg-gray-900 shadow-xl z-50 transform transition-transform duration-300 md:hidden ${
+        className={`fixed top-0 right-0 h-full w-80 bg-white dark:bg-gray-900 shadow-xl z-50 transform transition-transform duration-300 md:hidden ${
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Mobile Menu Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <Shield className="w-6 h-6 text-royal-600" />
@@ -153,7 +152,6 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Mobile Navigation Links */}
           <nav className="flex-1 py-6 px-4">
             <ul className="space-y-4">
               {allNavLinks.map((link) => (
@@ -171,7 +169,6 @@ export default function Header() {
             </ul>
           </nav>
 
-          {/* Mobile Menu Footer Actions */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
             {user ? (
               <button
@@ -179,13 +176,13 @@ export default function Header() {
                   logout();
                   closeMenu();
                 }}
-                className="w-full flex items-center justify-center space-x-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-2 rounded-lg"
+                className="w-full flex items-center justify-center space-x-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-3 rounded-lg"
               >
                 <LogOut size={18} />
                 <span>Logout</span>
               </button>
             ) : (
-              <Link href="/" onClick={closeMenu}>
+              <Link href="/get-verified" onClick={closeMenu} className="block">
                 <Button variant="primary" className="w-full">Get Verified</Button>
               </Link>
             )}
@@ -194,7 +191,7 @@ export default function Header() {
                 toggleTheme();
                 closeMenu();
               }}
-              className="w-full flex items-center justify-center space-x-2 py-2 rounded-lg border border-gray-300 dark:border-gray-700"
+              className="w-full flex items-center justify-center space-x-2 py-3 rounded-lg border border-gray-300 dark:border-gray-700"
             >
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
               <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>

@@ -3,9 +3,19 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, X } from 'lucide-react';
 
-export default function LocationVerificationForm({ userId, onSuccess }: { userId: string; onSuccess: () => void }) {
+interface LocationVerificationFormProps {
+  userId: string;
+  onSuccess: () => void;
+  onClose: () => void;  // Added onClose prop
+}
+
+export default function LocationVerificationForm({ 
+  userId, 
+  onSuccess, 
+  onClose 
+}: LocationVerificationFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'idle' | 'fetching' | 'verifying' | 'success' | 'failed'>('idle');
@@ -25,29 +35,41 @@ export default function LocationVerificationForm({ userId, onSuccess }: { userId
         setStatus('verifying');
         setLoading(true);
         
-        const res = await fetch('/api/verification/location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          })
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok && data.verified) {
-          setStatus('success');
-          setTimeout(onSuccess, 1500);
-        } else {
-          setError(data.message || 'Location verification failed');
+        try {
+          const res = await fetch('/api/verification/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            })
+          });
+          
+          const data = await res.json();
+          
+          if (res.ok && data.verified) {
+            setStatus('success');
+            setTimeout(onSuccess, 1500);
+          } else {
+            setError(data.message || 'Location verification failed');
+            setStatus('failed');
+          }
+        } catch (err) {
+          setError('Network error. Please try again.');
           setStatus('failed');
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       },
       (err) => {
-        setError('Unable to get your location. Please enable location access.');
+        let errorMessage = 'Unable to get your location. ';
+        if (err.code === 1) errorMessage += 'Please enable location access.';
+        else if (err.code === 2) errorMessage += 'Location unavailable. Try again.';
+        else if (err.code === 3) errorMessage += 'Request timed out. Check your connection.';
+        else errorMessage += 'Please allow location access.';
+        
+        setError(errorMessage);
         setStatus('failed');
         console.error(err);
       }
@@ -55,8 +77,16 @@ export default function LocationVerificationForm({ userId, onSuccess }: { userId
   };
 
   return (
-    <Card className="p-6">
-      <h2 className="text-2xl font-bold mb-2">Verify Your Business Location</h2>
+    <Card className="p-6 relative">
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+        aria-label="Close"
+      >
+        <X size={20} />
+      </button>
+
+      <h2 className="text-2xl font-bold mb-2 pr-8">Verify Your Business Location</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">Step 2 of 2: Confirm you're at your business address</p>
       
       {error && (
@@ -67,24 +97,28 @@ export default function LocationVerificationForm({ userId, onSuccess }: { userId
       
       {status === 'success' ? (
         <div className="text-center py-8">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MapPin className="w-8 h-8 text-green-600" />
+          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MapPin className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-green-600 dark:text-green-400 font-semibold">Location Verified!</p>
-          <p className="text-sm text-gray-500 mt-2">Redirecting to your dashboard...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Redirecting to your dashboard...</p>
         </div>
       ) : (
         <>
           <div className="bg-royal-50 dark:bg-royal-900/30 p-4 rounded-lg mb-6 text-center">
-            <MapPin className="w-8 h-8 text-royal-600 mx-auto mb-2" />
+            <MapPin className="w-8 h-8 text-royal-600 dark:text-royal-400 mx-auto mb-2" />
             <p className="text-sm text-gray-700 dark:text-gray-300">
               We need to confirm you are physically at your registered business address.
               <br />
-              <strong>Allow location access when prompted.</strong>
+              <strong className="text-royal-600 dark:text-royal-400">Allow location access when prompted.</strong>
             </p>
           </div>
           
-          <Button onClick={verifyLocation} disabled={loading || status !== 'idle'} className="w-full">
+          <Button 
+            onClick={verifyLocation} 
+            disabled={loading || status !== 'idle'} 
+            className="w-full"
+          >
             {status === 'fetching' && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {status === 'fetching' && 'Getting your location...'}
             {status === 'verifying' && <Loader2 className="w-4 h-4 animate-spin mr-2" />}

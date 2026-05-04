@@ -5,13 +5,15 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { X } from 'lucide-react';
 
+interface NumberVerificationFormProps {
+  onSuccess: (userId: string) => void;
+  onClose: () => void;
+}
+
 export default function NumberVerificationForm({ 
   onSuccess, 
   onClose 
-}: { 
-  onSuccess: (userId: string) => void;
-  onClose: () => void;
-}) {
+}: NumberVerificationFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -22,20 +24,25 @@ export default function NumberVerificationForm({
     setLoading(true);
     setError('');
     
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber, businessName, businessAddress })
-    });
-    
-    const data = await res.json();
-    
-    if (res.ok) {
-      onSuccess(data.userId);
-    } else {
-      setError(data.error || 'Registration failed');
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, businessName, businessAddress })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        onSuccess(data.userId);
+      } else {
+        setError(data.error || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -62,7 +69,7 @@ export default function NumberVerificationForm({
         placeholder="Phone number (e.g., 08012345678)"
         value={phoneNumber}
         onChange={(e) => setPhoneNumber(e.target.value)}
-        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800"
+        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-royal-500"
       />
       
       <input
@@ -70,7 +77,7 @@ export default function NumberVerificationForm({
         placeholder="Business name"
         value={businessName}
         onChange={(e) => setBusinessName(e.target.value)}
-        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800"
+        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-royal-500"
       />
       
       <input
@@ -78,15 +85,19 @@ export default function NumberVerificationForm({
         placeholder="Business address (e.g., Shop 12, Lagos Market)"
         value={businessAddress}
         onChange={(e) => setBusinessAddress(e.target.value)}
-        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-4 bg-white dark:bg-gray-800"
+        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-4 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-royal-500"
       />
       
-      <Button onClick={handleSubmit} disabled={loading || !phoneNumber || !businessName || !businessAddress} className="w-full">
+      <Button 
+        onClick={handleSubmit} 
+        disabled={loading || !phoneNumber || !businessName || !businessAddress} 
+        className="w-full"
+      >
         {loading ? 'Verifying...' : 'Verify Phone Number →'}
       </Button>
       
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
-        We'll silently verify your number. No OTP required.
+        We'll silently verify your number using mobile network APIs. No OTP required.
       </p>
     </Card>
   );
