@@ -1,71 +1,43 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-/* Custom theme configuration using CSS variables */
-@theme {
-  /* Colors */
-  --color-royal-50: #EFF6FF;
-  --color-royal-100: #DBEAFE;
-  --color-royal-200: #BFDBFE;
-  --color-royal-300: #93C5FD;
-  --color-royal-400: #60A5FA;
-  --color-royal-500: #3B82F6;
-  --color-royal-600: #2563EB;
-  --color-royal-700: #1D4ED8;
-  --color-royal-800: #1E3A8A;
-  --color-royal-900: #1E3A8A;
-  --color-royal: #1E3A8A;
-  
-  /* Font family */
-  --font-sans: 'Inter', system-ui, sans-serif;
-  
-  /* Custom animations */
-  --animate-fade-in: fade-in 0.3s ease-out;
-  
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-}
-
-/* Dark mode class strategy (manual class toggling) */
+/* 1. Enable manual dark mode toggle via a 'dark' class on <html> */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Base styles */
+@theme {
+  /* Brand Palette */
+  --color-royal: #002366;
+  --color-royal-vibrant: #0046cc;
+  --color-royal-light: #4169e1;
+  --color-black: #000000;
+  --color-white: #ffffff;
+
+  /* Catchy Gradients - Using 135deg for better mobile flow */
+  --bg-catchy-light: linear-gradient(135deg, #e0e7ff 0%, #ffffff 50%, #f1f5f9 100%);
+  --bg-catchy-dark: linear-gradient(135deg, #001a4d 0%, #000000 70%, #050505 100%);
+}
+
 @layer base {
   body {
-    background-color: var(--color-white);
-    color: var(--color-black);
-    transition-property: background-color, color;
-    transition-duration: 300ms;
+    /* Smooth transitions for theme switching */
+    @apply transition-colors duration-500 antialiased min-h-screen text-slate-900 bg-white;
+    background: var(--bg-catchy-light) fixed;
   }
-  
+
   .dark body {
-    background-color: var(--color-black);
-    color: var(--color-white);
+    @apply text-white bg-black;
+    background: var(--bg-catchy-dark) fixed;
   }
 }
 
-/* Custom components */
-@layer components {
-  .container-custom {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  
-  @media (min-width: 640px) {
-    .container-custom {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-  }
-  
-  @media (min-width: 1024px) {
-    .container-custom {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
-  }
+/* 2. Enhanced UI Utilities */
+@utility glass-effect {
+  /* High-end mobile look: subtle borders and blur */
+  @apply backdrop-blur-xl border rounded-2xl transition-all;
+  @apply border-black/5 bg-white/60 shadow-xl shadow-royal/5;
+  @apply dark:border-white/10 dark:bg-white/5 dark:shadow-none;
+}
+
+@utility btn-primary {
+  @apply bg-royal text-white px-6 py-3 rounded-xl font-bold active:scale-95 transition-transform;
+  @apply hover:bg-royal-vibrant dark:bg-royal-light dark:hover:bg-royal;
 }
