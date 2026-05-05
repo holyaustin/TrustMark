@@ -103,18 +103,18 @@ export default function Header() {
                     <>
                       <Link href="/dashboard">
                         <Button variant="secondary" size="sm">
-                          <User size={16} className="mr-1" /> Dashboard
+                          Dashboard
                         </Button>
                       </Link>
                       <Button variant="danger" size="sm" onClick={logout}>
-                        <LogOut size={16} className="mr-1" /> Logout
+                        Logout
                       </Button>
                     </>
                   ) : (
                     <>
                       <Link href="/login">
                         <Button variant="outline" size="sm">
-                          <LogIn size={16} className="mr-1" /> Login
+                           Login
                         </Button>
                       </Link>
                       <Link href="/get-verified">

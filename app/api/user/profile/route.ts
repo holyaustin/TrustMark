@@ -2,34 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
 import Badge from '@/lib/models/Badge';
-import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 
 const SECRET = process.env.JWT_SECRET!;
 
-function getUserIdFromToken(token: string): string | null {
+function getUserIdFromToken(request: NextRequest): string | null {
   try {
+    const token = request.cookies.get('trustmark_token')?.value;
+    if (!token) return null;
+    
     const decoded = jwt.verify(token, SECRET) as { userId: string };
     return decoded.userId;
-  } catch {
+  } catch (error) {
+    console.error('Token verification error:', error);
     return null;
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const cookieStore = await cookies();
-    const token = cookieStore.get('trustmark_token')?.value;
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userId = getUserIdFromToken(token);
+    const userId = getUserIdFromToken(request);
     if (!userId) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     const user = await User.findById(userId).lean();
@@ -37,7 +33,7 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const badge = await Badge.findOne({ userId: user._id });
+    const badge = await Badge.findOne({ userId: user._id }).lean();
     
     return NextResponse.json({
       user: {
@@ -45,15 +41,16 @@ export async function GET() {
         phoneNumber: user.phoneNumber,
         businessName: user.businessName,
         businessAddress: user.businessAddress,
-        verifiedNumber: user.verifiedNumber,
-        verifiedLocation: user.verifiedLocation,
-        badgeActive: user.badgeActive,
-        simSwapDetected: user.simSwapDetected,
-        verificationDate: user.verificationDate,
+        verifiedNumber: user.verifiedNumber || false,
+        verifiedLocation: user.verifiedLocation || false,
+        badgeActive: user.badgeActive || false,
+        simSwapDetected: user.simSwapDetected || false,
+        verificationDate: user.verificationDate || null,
+        lastSimSwapCheck: user.lastSimSwapCheck || null,
         trustScore: user.trustScore || 70,
-        badgeId: user.badgeId,
-        qrCodeUrl: user.qrCodeUrl || badge?.qrCodeUrl,
-        shortLink: user.shortLink || badge?.shortLink,
+        badgeId: user.badgeId || null,
+        qrCodeUrl: user.qrCodeUrl || badge?.qrCodeUrl || null,
+        shortLink: user.shortLink || badge?.shortLink || null,
         badgeViews: badge?.views || 0
       }
     });
@@ -63,40 +60,32 @@ export async function GET() {
   }
 }
 
-export async function PUT(req: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const cookieStore = await cookies();
-    const token = cookieStore.get('trustmark_token')?.value;
-    
-    if (!token) {
+    const userId = getUserIdFromToken(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const body = await request.json();
+    const { businessName, businessAddress } = body;
     
-    const { businessName, businessAddress } = await req.json();
-    
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { businessName, businessAddress, updatedAt: new Date() },
-      { new: true }
-    );
-    
+    const user = await User.findById(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    // If business address changed, require re-verification
-    if (businessAddress && businessAddress !== user.businessAddress) {
+    if (businessName) user.businessName = businessName;
+    if (businessAddress) {
+      user.businessAddress = businessAddress;
+      // If address changes, require re-verification
       user.verifiedLocation = false;
       user.badgeActive = false;
-      await user.save();
     }
+    user.updatedAt = new Date();
+    await user.save();
     
     return NextResponse.json({ success: true });
   } catch (error) {

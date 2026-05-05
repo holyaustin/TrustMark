@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { MapPin, Loader2, X } from 'lucide-react';
+import { MapPin, Loader2, X, CheckCircle } from 'lucide-react';
 
 interface LocationVerificationFormProps {
   userId: string;
   onSuccess: () => void;
-  onClose: () => void;  // Added onClose prop
+  onClose: () => void;
 }
 
 export default function LocationVerificationForm({ 
@@ -38,7 +38,9 @@ export default function LocationVerificationForm({
         try {
           const res = await fetch('/api/verification/location', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({
               userId,
               latitude: position.coords.latitude,
@@ -50,12 +52,15 @@ export default function LocationVerificationForm({
           
           if (res.ok && data.verified) {
             setStatus('success');
-            setTimeout(onSuccess, 1500);
+            setTimeout(() => {
+              onSuccess();
+            }, 1500);
           } else {
-            setError(data.message || 'Location verification failed');
+            setError(data.message || 'Location verification failed. Please ensure you are at your registered business address.');
             setStatus('failed');
           }
         } catch (err) {
+          console.error('Location verification error:', err);
           setError('Network error. Please try again.');
           setStatus('failed');
         } finally {
@@ -64,14 +69,24 @@ export default function LocationVerificationForm({
       },
       (err) => {
         let errorMessage = 'Unable to get your location. ';
-        if (err.code === 1) errorMessage += 'Please enable location access.';
-        else if (err.code === 2) errorMessage += 'Location unavailable. Try again.';
-        else if (err.code === 3) errorMessage += 'Request timed out. Check your connection.';
-        else errorMessage += 'Please allow location access.';
+        if (err.code === 1) {
+          errorMessage += 'Please enable location access in your browser settings.';
+        } else if (err.code === 2) {
+          errorMessage += 'Location unavailable. Please try again.';
+        } else if (err.code === 3) {
+          errorMessage += 'Request timed out. Check your connection.';
+        } else {
+          errorMessage += 'Please allow location access.';
+        }
         
         setError(errorMessage);
         setStatus('failed');
-        console.error(err);
+        console.error('Geolocation error:', err);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       }
     );
   };
@@ -98,19 +113,22 @@ export default function LocationVerificationForm({
       {status === 'success' ? (
         <div className="text-center py-8">
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MapPin className="w-8 h-8 text-green-600 dark:text-green-400" />
+            <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
-          <p className="text-green-600 dark:text-green-400 font-semibold">Location Verified!</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Redirecting to your dashboard...</p>
+          <p className="text-green-600 dark:text-green-400 font-semibold text-lg">Location Verified!</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            Your TrustMark badge is now active. Redirecting to dashboard...
+          </p>
         </div>
       ) : (
         <>
           <div className="bg-royal-50 dark:bg-royal-900/30 p-4 rounded-lg mb-6 text-center">
-            <MapPin className="w-8 h-8 text-royal-600 dark:text-royal-400 mx-auto mb-2" />
+            <MapPin className="w-10 h-10 text-royal-600 dark:text-royal-400 mx-auto mb-3" />
             <p className="text-sm text-gray-700 dark:text-gray-300">
               We need to confirm you are physically at your registered business address.
-              <br />
-              <strong className="text-royal-600 dark:text-royal-400">Allow location access when prompted.</strong>
+            </p>
+            <p className="text-xs text-royal-600 dark:text-royal-400 mt-2 font-medium">
+              Click the button below and ALLOW location access when prompted.
             </p>
           </div>
           
@@ -122,10 +140,14 @@ export default function LocationVerificationForm({
             {status === 'fetching' && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {status === 'fetching' && 'Getting your location...'}
             {status === 'verifying' && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            {status === 'verifying' && 'Verifying with Nokia API...'}
+            {status === 'verifying' && 'Verifying with TrustMark...'}
             {status === 'idle' && 'Share My Location →'}
             {status === 'failed' && 'Try Again →'}
           </Button>
+          
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
+            Your location is only used for verification and is not stored or shared publicly.
+          </p>
         </>
       )}
     </Card>

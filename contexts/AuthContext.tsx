@@ -8,6 +8,9 @@ interface User {
   phoneNumber: string;
   businessName: string;
   badgeActive: boolean;
+  verifiedNumber?: boolean;
+  verifiedLocation?: boolean;
+  trustScore?: number;
 }
 
 interface AuthContextType {
@@ -31,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
       } else {
+        // Clear user if not authenticated
         setUser(null);
+        Cookies.remove('trustmark_token');
       }
     } catch (error) {
       console.error('Auth refresh error:', error);
@@ -51,7 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneNumber }),
     });
-    if (!res.ok) throw new Error('Login failed');
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Login failed');
+    }
+    
     await refreshUser();
   };
 
