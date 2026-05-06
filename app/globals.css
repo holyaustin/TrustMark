@@ -25,7 +25,7 @@
   body {
     @apply transition-colors duration-500 antialiased min-h-screen text-slate-900;
     
-    /* REVISED LIGHT MODE: Very visible blue gradient */
+    /* LIGHT MODE: Very visible blue gradient */
     background-color: var(--color-sky-vibrant);
     background-image: 
       linear-gradient(135deg, 
@@ -48,27 +48,23 @@
   }
 }
 
-/* Container Utility Classes with X and Y padding */
+/* Container Utility Classes - Using standard media queries for v4 compatibility */
 @layer components {
   .container-custom {
     width: 100%;
     max-width: var(--container-custom-max-width);
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--container-custom-padding-x);
-    padding-right: var(--container-custom-padding-x);
-    padding-top: var(--container-custom-padding-y);
-    padding-bottom: var(--container-custom-padding-y);
+    margin-inline: auto;
+    padding: var(--container-custom-padding-y) var(--container-custom-padding-x);
   }
   
-  @screen sm {
+  @media (min-width: 640px) {
     .container-custom {
       --container-custom-padding-x: 1.5rem;
       --container-custom-padding-y: 1.25rem;
     }
   }
   
-  @screen lg {
+  @media (min-width: 1024px) {
     .container-custom {
       --container-custom-padding-x: 2rem;
       --container-custom-padding-y: 1.5rem;
@@ -76,40 +72,34 @@
   }
 }
 
-/* Button Styles - Visible in Light Mode */
-@layer components {
-  .btn-primary {
-    @apply bg-royal text-white px-6 py-3 rounded-xl font-bold active:scale-95 transition-all duration-200;
-    @apply shadow-lg hover:shadow-royal/30 hover:bg-royal-light;
-    @apply dark:bg-royal-light dark:hover:bg-royal;
-  }
-  
-  .btn-secondary {
-    @apply bg-white text-royal border-2 border-royal px-6 py-3 rounded-xl font-bold transition-all duration-200;
-    @apply hover:bg-royal hover:text-white hover:border-transparent shadow-md;
-    @apply dark:bg-transparent dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-royal;
-  }
-  
-  .btn-outline {
-    @apply bg-transparent border-2 border-royal text-royal px-6 py-3 rounded-xl font-bold transition-all duration-200;
-    @apply hover:bg-royal hover:text-white shadow-md;
-    @apply dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-royal;
-  }
-  
-  .btn-danger {
-    @apply bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition-all duration-200;
-    @apply hover:bg-red-700 shadow-md;
-  }
+/* Button Styles - Using v4 @utility for better performance */
+@utility btn-primary {
+  @apply bg-royal text-white px-6 py-3 rounded-xl font-bold active:scale-95 transition-all duration-200;
+  @apply shadow-lg hover:shadow-royal/30 hover:bg-royal-light;
+  @apply dark:bg-royal-light dark:hover:bg-royal;
+}
+
+@utility btn-secondary {
+  @apply bg-white text-royal border-2 border-royal px-6 py-3 rounded-xl font-bold transition-all duration-200;
+  @apply hover:bg-royal hover:text-white hover:border-transparent shadow-md;
+  @apply dark:bg-transparent dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-royal;
+}
+
+@utility btn-outline {
+  @apply bg-transparent border-2 border-royal text-royal px-6 py-3 rounded-xl font-bold transition-all duration-200;
+  @apply hover:bg-royal hover:text-white shadow-md;
+  @apply dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-royal;
+}
+
+@utility btn-danger {
+  @apply bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition-all duration-200;
+  @apply hover:bg-red-700 shadow-md;
 }
 
 /* UI Utilities tuned for the visible blue background */
 @utility glass-effect {
   @apply backdrop-blur-2xl border transition-all duration-500 rounded-3xl;
-  
-  /* Light: High contrast white-glass on blue */
   @apply bg-white/70 border-white/40 shadow-2xl shadow-royal/10;
-  
-  /* Dark: Deep translucent black */
   @apply dark:bg-black/60 dark:border-white/10 dark:shadow-none;
 }
 
