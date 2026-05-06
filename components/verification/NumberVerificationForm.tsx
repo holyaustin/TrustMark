@@ -4,12 +4,21 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { Phone, Loader2, X } from 'lucide-react';
+import { Phone, Loader2, X, Info } from 'lucide-react';
 
 interface NumberVerificationFormProps {
   onSuccess: (userId: string, kycData: any) => void;
   onClose: () => void;
 }
+
+// Simulator test numbers from documentation
+const SIMULATOR_NUMBERS = [
+  { value: '+99999991000', label: '✅ Verified Number (Success)', verified: true },
+  { value: '+99999991001', label: '❌ Not Verified Number', verified: false },
+  { value: '+99999990400', label: '⚠️ Bad Request (400)', verified: false, error: true },
+  { value: '+99999990404', label: '⚠️ Not Found (404)', verified: false, error: true },
+  { value: '+99999990500', label: '⚠️ Server Error (500)', verified: false, error: true },
+];
 
 export default function NumberVerificationForm({ onSuccess, onClose }: NumberVerificationFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -18,16 +27,23 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
   const [businessState, setBusinessState] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSimulatorHelp, setShowSimulatorHelp] = useState(false);
 
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
     
+    // Ensure phone number starts with +
+    let formattedNumber = phoneNumber;
+    if (!formattedNumber.startsWith('+')) {
+      formattedNumber = '+' + formattedNumber.replace(/[^0-9]/g, '');
+    }
+    
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        phoneNumber, 
+        phoneNumber: formattedNumber, 
         businessName, 
         businessAddress,
         businessState
@@ -42,6 +58,11 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
       setError(data.error || 'Registration failed');
     }
     setLoading(false);
+  };
+
+  const fillSimulatorNumber = (number: string) => {
+    setPhoneNumber(number);
+    setShowSimulatorHelp(false);
   };
 
   return (
@@ -71,11 +92,39 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
       
       <input
         type="tel"
-        placeholder="Phone number (e.g., 08012345678)"
+        placeholder="Phone number (e.g., +99999991000)"
         value={phoneNumber}
         onChange={(e) => setPhoneNumber(e.target.value)}
-        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500 focus:border-transparent"
+        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-2 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500 focus:border-transparent"
       />
+      
+      {/* Simulator Help Button */}
+      <button
+        type="button"
+        onClick={() => setShowSimulatorHelp(!showSimulatorHelp)}
+        className="text-xs text-royal-600 dark:text-royal-400 flex items-center gap-1 mb-3"
+      >
+        <Info className="w-3 h-3" />
+        <span>Testing? Use simulator numbers</span>
+      </button>
+      
+      {/* Simulator Numbers Dropdown */}
+      {showSimulatorHelp && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-3">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2">Simulator Test Numbers:</p>
+          <div className="space-y-1">
+            {SIMULATOR_NUMBERS.map((num) => (
+              <button
+                key={num.value}
+                onClick={() => fillSimulatorNumber(num.value)}
+                className="text-xs text-left w-full p-1 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded transition"
+              >
+                {num.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       
       <input
         type="text"
@@ -127,7 +176,7 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
       </Button>
       
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
-        We'll silently verify your number using mobile network APIs. No OTP required.
+        Using Nokia Network-as-Code API. Test numbers: +99999991000 (verified) or +99999991001 (not verified)
       </p>
     </Card>
   );
