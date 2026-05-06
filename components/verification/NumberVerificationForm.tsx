@@ -4,13 +4,14 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { Phone, Loader2, CheckCircle } from 'lucide-react';
+import { Phone, Loader2, X } from 'lucide-react';
 
 interface NumberVerificationFormProps {
   onSuccess: (userId: string, kycData: any) => void;
+  onClose: () => void;
 }
 
-export default function NumberVerificationForm({ onSuccess }: NumberVerificationFormProps) {
+export default function NumberVerificationForm({ onSuccess, onClose }: NumberVerificationFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -44,7 +45,14 @@ export default function NumberVerificationForm({ onSuccess }: NumberVerification
   };
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 relative">
+      <button 
+        onClick={onClose}
+        className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+      >
+        <X className="w-5 h-5 text-gray-500" />
+      </button>
+      
       <div className="text-center mb-6">
         <div className="w-16 h-16 bg-royal-100 dark:bg-royal-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
           <Phone className="w-8 h-8 text-royal-600" />
