@@ -1,128 +1,58 @@
+// app/api/verification/location/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
-import Badge from '@/lib/models/Badge';
-import VerificationLog from '@/lib/models/VerificationLog';
 import { verifyLocation } from '@/lib/nokia/client';
 import { getCurrentUser } from '@/lib/utils/auth';
-import { generateQRCode } from '@/lib/utils/qrcode';
+
+// Simple geocoding helper (in production, use a proper service)
+// For hackathon, we'll use a simplified mapping
+function getStateFromCoordinates(lat: number, lng: number): string {
+  // Simplified for demo - in production use reverse geocoding
+  // Lagos coordinates approximate
+  if (lat >= 6.4 && lat <= 6.6 && lng >= 3.2 && lng <= 3.4) return 'Lagos';
+  if (lat >= 9.0 && lat <= 9.1 && lng >= 7.4 && lng <= 7.5) return 'Abuja';
+  return 'Lagos'; // Default for simulator
+}
 
 export async function POST(req: NextRequest) {
-  console.log('📍 Location verification API called');
+  await connectToDatabase();
   
-  try {
-    await connectToDatabase();
-    
-    // Get user from token (cookie)
-    const token = req.cookies.get('trustmark_token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const { userId, latitude, longitude } = await req.json();
-    
-    // If userId not provided, try to get from token
-    let targetUserId = userId;
-    if (!targetUserId) {
-      // Use token to get user
-      const { getCurrentUser } = await import('@/lib/utils/auth');
-      targetUserId = await getCurrentUser();
-    }
-    
-    if (!targetUserId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    const user = await User.findById(targetUserId);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    // For development, skip real Nokia API and simulate successful verification
-    const hasValidApiKey = process.env.NOKIA_API_KEY && 
-                           process.env.NOKIA_API_KEY !== 'dummy_key_for_testing' &&
-                           process.env.NOKIA_API_KEY !== '';
-    
-    let locationVerified = false;
-    let confidence = 0;
-    
-    if (hasValidApiKey && latitude && longitude) {
-      try {
-        // Use coordinates to verify (if you have coordinates from geolocation)
-        const locationVerification = await verifyLocation(user.phoneNumber, user.businessAddress);
-        locationVerified = locationVerification.matched;
-        confidence = locationVerification.confidence;
-        console.log('Nokia location verification:', locationVerified, confidence);
-      } catch (nokiaError) {
-        console.error('Nokia location API error:', nokiaError);
-        // Fall back to development mode
-        locationVerified = true;
-        confidence = 85;
-      }
-    } else {
-      // Development mode: auto-verify location
-      console.log('Development mode: Auto-verifying location');
-      locationVerified = true;
-      confidence = 95;
-    }
-    
-    await VerificationLog.create({
-      userId: user._id,
-      type: 'location',
-      status: locationVerified ? 'success' : 'failed',
-      responseData: { confidence, latitude, longitude }
-    });
-    
-    if (locationVerified && confidence > 50) {
-      // Update user
-      user.verifiedLocation = true;
-      user.badgeActive = true;
-      user.verificationDate = new Date();
-      user.updatedAt = new Date();
-      await user.save();
-      
-      // Generate QR code and short link
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL!;
-      const shortLink = `${baseUrl}/verify/${user.badgeId}`;
-      const qrCodeUrl = await generateQRCode(shortLink);
-      
-      // Create or update badge
-      await Badge.findOneAndUpdate(
-        { userId: user._id },
-        {
-          userId: user._id,
-          badgeId: user.badgeId,
-          qrCodeUrl,
-          shortLink,
-          isActive: true,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        },
-        { upsert: true }
-      );
-      
-      user.qrCodeUrl = qrCodeUrl;
-      user.shortLink = shortLink;
-      await user.save();
-      
-      console.log('✅ Location verified, badge activated for user:', user._id);
-      
-      return NextResponse.json({
-        verified: true,
-        confidence: confidence,
-        shortLink,
-        qrCodeUrl,
-        message: 'Location verified! Your TrustMark badge is now active.'
-      });
-    }
+  const userId = await getCurrentUser();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  const { latitude, longitude, expectedState } = await req.json();
+  
+  const user = await User.findById(userId);
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  
+  // Get actual state from coordinates (simplified for demo)
+  const actualState = getStateFromCoordinates(latitude, longitude);
+  
+  // Dynamic verification - only check if same state, not exact address
+  const isSameState = actualState.toLowerCase() === expectedState.toLowerCase();
+  
+  if (isSameState) {
+    user.locationVerified = true;
+    user.badgeActive = user.kycMatchVerified; // Only activate if KYC also done
+    user.updatedAt = new Date();
+    await user.save();
     
     return NextResponse.json({
-      verified: false,
-      confidence: confidence,
-      message: 'Location verification failed. Please ensure you are at your registered business address.'
-    }, { status: 400 });
-    
-  } catch (error) {
-    console.error('Location verification error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+      verified: true,
+      stateMatch: actualState,
+      message: `Location verified! You are confirmed to be in ${actualState} state.`
+    });
   }
+  
+  return NextResponse.json({
+    verified: false,
+    stateMatch: actualState,
+    expectedState,
+    message: `Location verification failed. You appear to be in ${actualState}, but your business is registered in ${expectedState}.`
+  }, { status: 400 });
 }

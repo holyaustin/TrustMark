@@ -1,7 +1,26 @@
+// lib/nokia/client.ts
 import axios from 'axios';
 
 const NOKIA_API_KEY = process.env.NOKIA_API_KEY!;
 const NOKIA_BASE_URL = process.env.NOKIA_API_BASE_URL!;
+const USE_SIMULATOR = process.env.USE_SIMULATOR === 'true';
+
+// Simulated responses for hackathon demo
+const SIMULATED_RESPONSES = {
+  numberVerification: { verified: true, subscriberId: 'SIM_MTN_NG_12345678' },
+  simSwap: { swappedRecently: false, daysSinceSwap: 365, lastSwapDate: '2023-01-15' },
+  kycTenure: { meetsTenure: true, contractType: 'PAYM', tenureYears: 3 },
+  kycFillIn: {
+    fullName: 'Adebayo Ogunlesi',
+    givenName: 'Adebayo',
+    familyName: 'Ogunlesi',
+    address: '15 Allen Avenue, Ikeja, Lagos',
+    birthdate: '1985-06-15',
+    nationality: 'NG'
+  },
+  kycMatch: { nameMatch: true, addressMatch: true, overallMatch: true },
+  locationVerification: { matched: true, stateMatch: 'Lagos', confidence: 92 }
+};
 
 const nokiaClient = axios.create({
   baseURL: NOKIA_BASE_URL,
@@ -12,63 +31,103 @@ const nokiaClient = axios.create({
   timeout: 10000
 });
 
-export interface NumberVerificationResponse {
-  verified: boolean;
-  subscriberId?: string;
-  message?: string;
-}
-
-export interface SimSwapResponse {
-  swappedRecently: boolean;
-  lastSwapDate?: string;
-  daysSinceSwap?: number;
-}
-
-export interface LocationVerificationResponse {
-  matched: boolean;
-  confidence: number; // 0-100
-  radius?: number; // meters
-  addressSuggestion?: string;
-}
-
-export async function verifyNumber(phoneNumber: string): Promise<NumberVerificationResponse> {
+// Helper to use simulator or real API
+async function callApi<T>(endpoint: string, data: any, simulateData: T): Promise<T> {
+  if (USE_SIMULATOR) {
+    console.log(`[SIMULATOR] Calling ${endpoint} - returning mock data`);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    return simulateData;
+  }
+  
   try {
-    const response = await nokiaClient.post('/number-verification', { phoneNumber });
-    return { verified: true, subscriberId: response.data.subscriberId };
+    const response = await nokiaClient.post(endpoint, data);
+    return response.data;
   } catch (error: any) {
-    console.error('Number verification failed:', error.response?.data || error.message);
-    return { verified: false, message: error.response?.data?.message || 'Verification failed' };
+    console.error(`API Error ${endpoint}:`, error.response?.data || error.message);
+    throw new Error(`Nokia API failed: ${error.response?.data?.message || error.message}`);
   }
 }
 
-export async function checkSimSwap(phoneNumber: string): Promise<SimSwapResponse> {
-  try {
-    const response = await nokiaClient.post('/sim-swap', { phoneNumber });
-    return {
-      swappedRecently: response.data.swappedRecently || false,
-      lastSwapDate: response.data.lastSwapDate,
-      daysSinceSwap: response.data.daysSinceSwap
-    };
-  } catch (error: any) {
-    console.error('SIM swap check failed:', error.response?.data || error.message);
-    return { swappedRecently: false };
-  }
+/**
+ * Number Verification - Silent authentication
+ * Confirms phone number belongs to device owner
+ */
+export async function verifyNumber(phoneNumber: string) {
+  return callApi(
+    '/number-verification',
+    { phoneNumber },
+    { ...SIMULATED_RESPONSES.numberVerification, phoneNumber }
+  );
 }
 
-export async function verifyLocation(phoneNumber: string, expectedAddress: string): Promise<LocationVerificationResponse> {
-  try {
-    const response = await nokiaClient.post('/location-verification', {
-      phoneNumber,
-      expectedAddress
-    });
-    return {
-      matched: response.data.matched || false,
-      confidence: response.data.confidence || 0,
-      radius: response.data.radius,
-      addressSuggestion: response.data.suggestedAddress
-    };
-  } catch (error: any) {
-    console.error('Location verification failed:', error.response?.data || error.message);
-    return { matched: false, confidence: 0 };
+/**
+ * SIM Swap Detection - Checks if SIM was recently changed
+ */
+export async function checkSimSwap(phoneNumber: string) {
+  return callApi(
+    '/sim-swap',
+    { phoneNumber },
+    SIMULATED_RESPONSES.simSwap
+  );
+}
+
+/**
+ * KYC Tenure - Verifies continuous customer status
+ */
+export async function checkTenure(phoneNumber: string) {
+  return callApi(
+    '/kyc-tenure',
+    { phoneNumber },
+    SIMULATED_RESPONSES.kycTenure
+  );
+}
+
+/**
+ * KYC Fill-in - Retrieves customer data from operator records
+ * Auto-populates registration form
+ */
+export async function getKycData(phoneNumber: string) {
+  return callApi(
+    '/kyc-fill-in',
+    { phoneNumber },
+    SIMULATED_RESPONSES.kycFillIn
+  );
+}
+
+/**
+ * KYC Match - Validates user-provided data against operator records
+ * Core identity verification
+ */
+export async function verifyKycMatch(phoneNumber: string, fullName: string, address: string) {
+  return callApi(
+    '/kyc-match',
+    { phoneNumber, name: fullName, address },
+    { ...SIMULATED_RESPONSES.kycMatch, phoneNumber }
+  );
+}
+
+/**
+ * Location Verification - Dynamic (checks within same state)
+ * Not exact location - just confirms seller is in same state as business
+ */
+export async function verifyLocation(phoneNumber: string, latitude: number, longitude: number, expectedState: string) {
+  // In simulator mode, just return success
+  if (USE_SIMULATOR) {
+    return { matched: true, stateMatch: expectedState, confidence: 95 };
   }
+  
+  // Real implementation would use geocoding to convert lat/lng to state/region
+  // Then compare with expectedState
+  const response = await nokiaClient.post('/location-verification', {
+    phoneNumber,
+    latitude,
+    longitude,
+    expectedState
+  });
+  
+  return {
+    matched: response.data.stateMatch,
+    stateMatch: response.data.matchedState,
+    confidence: response.data.confidence
+  };
 }
