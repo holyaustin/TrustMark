@@ -1,3 +1,4 @@
+// components/dashboard/KYCCompletionWidget.tsx
 'use client';
 
 import Card from '@/components/ui/Card';
@@ -40,7 +41,8 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
       description: 'Phone number verified with network',
       completed: profile.numberVerified || false,
       points: 15,
-      action: null
+      action: null,
+      auto: true
     },
     {
       key: 'age',
@@ -56,7 +58,8 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
       description: 'Long-term relationship with operator',
       completed: profile.tenureValid || false,
       points: 15,
-      action: null
+      action: null,
+      auto: true
     },
     {
       key: 'location',
@@ -120,7 +123,7 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
                   Complete <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               )}
-              {!item.completed && !item.action && (
+              {!item.completed && item.auto && (
                 <span className="text-xs text-gray-400">Auto</span>
               )}
             </div>
