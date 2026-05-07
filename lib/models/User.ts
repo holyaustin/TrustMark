@@ -5,13 +5,22 @@ const UserSchema = new Schema({
   phoneNumber: { type: String, required: true, unique: true },
   businessName: { type: String, required: true },
   businessAddress: { type: String, required: true },
-  businessState: { type: String, required: true }, // State only for dynamic verification
+  businessCity: { type: String, required: true },
+  businessCountry: { type: String, required: true },
   
   // Verification flags
   numberVerified: { type: Boolean, default: false },
   locationVerified: { type: Boolean, default: false },
   kycMatchVerified: { type: Boolean, default: false },
   simSwapDetected: { type: Boolean, default: false },
+  
+  // Location verification data
+  locationData: {
+    verifiedAt: { type: Date },
+    lastLatitude: { type: Number },
+    lastLongitude: { type: Number },
+    matchRate: { type: Number }
+  },
   
   // KYC Data from operator
   kycData: {

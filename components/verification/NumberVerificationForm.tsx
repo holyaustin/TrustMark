@@ -11,7 +11,60 @@ interface NumberVerificationFormProps {
   onClose: () => void;
 }
 
-// Simulator test numbers from documentation
+// African countries list for dropdown
+const AFRICAN_COUNTRIES = [
+  { code: 'NG', name: 'Nigeria' },
+  { code: 'KE', name: 'Kenya' },
+  { code: 'ZA', name: 'South Africa' },
+  { code: 'GH', name: 'Ghana' },
+  { code: 'EG', name: 'Egypt' },
+  { code: 'MA', name: 'Morocco' },
+  { code: 'SN', name: 'Senegal' },
+  { code: 'CI', name: "Côte d'Ivoire" },
+  { code: 'TZ', name: 'Tanzania' },
+  { code: 'UG', name: 'Uganda' },
+  { code: 'RW', name: 'Rwanda' },
+  { code: 'ET', name: 'Ethiopia' },
+  { code: 'ZM', name: 'Zambia' },
+  { code: 'ZW', name: 'Zimbabwe' },
+  { code: 'BW', name: 'Botswana' },
+  { code: 'NA', name: 'Namibia' },
+  { code: 'MZ', name: 'Mozambique' },
+  { code: 'AO', name: 'Angola' },
+  { code: 'CM', name: 'Cameroon' },
+  { code: 'BF', name: 'Burkina Faso' },
+  { code: 'ML', name: 'Mali' },
+  { code: 'NE', name: 'Niger' },
+  { code: 'TD', name: 'Chad' },
+  { code: 'SS', name: 'South Sudan' },
+  { code: 'SD', name: 'Sudan' },
+  { code: 'LY', name: 'Libya' },
+  { code: 'TN', name: 'Tunisia' },
+  { code: 'DZ', name: 'Algeria' },
+  { code: 'MR', name: 'Mauritania' },
+  { code: 'GM', name: 'Gambia' },
+  { code: 'GN', name: 'Guinea' },
+  { code: 'SL', name: 'Sierra Leone' },
+  { code: 'LR', name: 'Liberia' },
+  { code: 'BJ', name: 'Benin' },
+  { code: 'TG', name: 'Togo' },
+  { code: 'BI', name: 'Burundi' },
+  { code: 'DJ', name: 'Djibouti' },
+  { code: 'ER', name: 'Eritrea' },
+  { code: 'SO', name: 'Somalia' },
+  { code: 'MW', name: 'Malawi' },
+  { code: 'MG', name: 'Madagascar' },
+  { code: 'MU', name: 'Mauritius' },
+  { code: 'SC', name: 'Seychelles' },
+  { code: 'CV', name: 'Cabo Verde' },
+  { code: 'KM', name: 'Comoros' },
+  { code: 'GQ', name: 'Equatorial Guinea' },
+  { code: 'GA', name: 'Gabon' },
+  { code: 'CG', name: 'Congo' },
+  { code: 'CD', name: 'DR Congo' },
+];
+
+// Simulator test numbers from Nokia documentation
 const SIMULATOR_NUMBERS = [
   { value: '+99999991000', label: '✅ Verified Number (Success)', verified: true },
   { value: '+99999991001', label: '❌ Not Verified Number', verified: false },
@@ -24,7 +77,8 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
   const [phoneNumber, setPhoneNumber] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
-  const [businessState, setBusinessState] = useState('');
+  const [businessCity, setBusinessCity] = useState('');
+  const [businessCountry, setBusinessCountry] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSimulatorHelp, setShowSimulatorHelp] = useState(false);
@@ -46,7 +100,8 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
         phoneNumber: formattedNumber, 
         businessName, 
         businessAddress,
-        businessState
+        businessCity,
+        businessCountry
       })
     });
     
@@ -66,7 +121,7 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
   };
 
   return (
-    <Card className="p-6 relative">
+    <Card className="p-6 relative max-w-md w-full">
       <button 
         onClick={onClose}
         className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -92,7 +147,7 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
       
       <input
         type="tel"
-        placeholder="Phone number (e.g., +99999991000)"
+        placeholder="Phone number (e.g., +2348012345678)"
         value={phoneNumber}
         onChange={(e) => setPhoneNumber(e.target.value)}
         className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-2 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500 focus:border-transparent"
@@ -136,33 +191,36 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
       
       <input
         type="text"
-        placeholder="Business address (e.g., 15 Allen Avenue)"
+        placeholder="Business address (street, building, landmark)"
         value={businessAddress}
         onChange={(e) => setBusinessAddress(e.target.value)}
         className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500"
       />
       
+      <input
+        type="text"
+        placeholder="City (e.g., Lagos, Nairobi, Cape Town)"
+        value={businessCity}
+        onChange={(e) => setBusinessCity(e.target.value)}
+        className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-3 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500"
+      />
+      
       <select
-        value={businessState}
-        onChange={(e) => setBusinessState(e.target.value)}
+        value={businessCountry}
+        onChange={(e) => setBusinessCountry(e.target.value)}
         className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-4 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500"
       >
-        <option value="">Select State</option>
-        <option value="Lagos">Lagos</option>
-        <option value="Abuja">Abuja FCT</option>
-        <option value="Rivers">Rivers</option>
-        <option value="Oyo">Oyo</option>
-        <option value="Kano">Kano</option>
-        <option value="Anambra">Anambra</option>
-        <option value="Enugu">Enugu</option>
-        <option value="Delta">Delta</option>
-        <option value="Edo">Edo</option>
-        <option value="Ogun">Ogun</option>
+        <option value="">Select Country</option>
+        {AFRICAN_COUNTRIES.map((country) => (
+          <option key={country.code} value={country.name}>
+            {country.name}
+          </option>
+        ))}
       </select>
       
       <Button 
         onClick={handleSubmit} 
-        disabled={loading || !phoneNumber || !businessName || !businessAddress || !businessState} 
+        disabled={loading || !phoneNumber || !businessName || !businessAddress || !businessCity || !businessCountry} 
         className="w-full"
       >
         {loading ? (

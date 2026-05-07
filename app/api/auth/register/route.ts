@@ -2,17 +2,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
-import { verifyNumber, getKycData, checkSimSwap, checkTenure, SIMULATOR_NUMBERS } from '@/lib/nokia/client';
+import VerificationLog from '@/lib/models/VerificationLog';
+import { verifyNumber, getKycData, checkSimSwap, checkTenure } from '@/lib/nokia/client';
 import { createToken } from '@/lib/utils/jwt';
 import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   await connectToDatabase();
   
-  const { phoneNumber, businessName, businessAddress, businessState } = await req.json();
+  const { phoneNumber, businessName, businessAddress, businessCity, businessCountry } = await req.json();
   
-  if (!phoneNumber || !businessName || !businessAddress || !businessState) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  if (!phoneNumber || !businessName || !businessAddress || !businessCity || !businessCountry) {
+    return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
   }
   
   // Ensure phone number has + prefix
@@ -31,16 +32,6 @@ export async function POST(req: NextRequest) {
   const numberVerification = await verifyNumber(formattedNumber);
   
   if (!numberVerification.verified) {
-    // Provide specific error message based on simulator number
-    if (formattedNumber === SIMULATOR_NUMBERS.NOT_FOUND) {
-      return NextResponse.json({ error: 'Phone number not found in network (404)' }, { status: 400 });
-    }
-    if (formattedNumber === SIMULATOR_NUMBERS.BAD_REQUEST) {
-      return NextResponse.json({ error: 'Invalid phone number format (400)' }, { status: 400 });
-    }
-    if (formattedNumber === SIMULATOR_NUMBERS.SERVER_ERROR) {
-      return NextResponse.json({ error: 'Server error (500). Please try again.' }, { status: 400 });
-    }
     return NextResponse.json({ 
       error: numberVerification.error || 'Phone number verification failed. Use +99999991000 for testing.' 
     }, { status: 400 });
@@ -49,10 +40,10 @@ export async function POST(req: NextRequest) {
   // 2. Get KYC data from operator (for auto-fill)
   const kycData = await getKycData(formattedNumber);
   
-  // 3. Check SIM swap status (20 points potential)
+  // 3. Check SIM swap status
   const simSwap = await checkSimSwap(formattedNumber);
   
-  // 4. Check tenure (15 points potential)
+  // 4. Check tenure
   const tenure = await checkTenure(formattedNumber);
   
   // Generate unique badge ID
@@ -63,7 +54,8 @@ export async function POST(req: NextRequest) {
     phoneNumber: formattedNumber,
     businessName,
     businessAddress,
-    businessState,
+    businessCity,
+    businessCountry,
     numberVerified: true,
     simSwapDetected: simSwap.swappedRecently || false,
     tenureValid: tenure.meetsTenure || false,
@@ -78,7 +70,15 @@ export async function POST(req: NextRequest) {
       nationality: kycData.nationality
     },
     badgeId,
-    badgeActive: false // Requires location + KYC verification
+    badgeActive: false
+  });
+  
+  // Create verification log
+  await VerificationLog.create({
+    userId: user._id,
+    type: 'number',
+    status: 'success',
+    responseData: numberVerification
   });
   
   // Create JWT token
@@ -91,8 +91,7 @@ export async function POST(req: NextRequest) {
     kycData: {
       fullName: kycData.fullName,
       birthdate: kycData.birthdate,
-      address: kycData.address,
-      state: businessState
+      address: kycData.address
     },
     message: 'Number verified. Proceed to location and KYC verification.'
   });
