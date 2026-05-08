@@ -1,95 +1,95 @@
+// app/api/user/profile/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
 import Badge from '@/lib/models/Badge';
-import jwt from 'jsonwebtoken';
+import { getCurrentUser } from '@/lib/utils/auth';
 
-const SECRET = process.env.JWT_SECRET!;
-
-function getUserIdFromToken(request: NextRequest): string | null {
-  try {
-    const token = request.cookies.get('trustmark_token')?.value;
-    if (!token) return null;
-    
-    const decoded = jwt.verify(token, SECRET) as { userId: string };
-    return decoded.userId;
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return null;
+export async function GET() {
+  await connectToDatabase();
+  
+  const userId = await getCurrentUser();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const user = await User.findById(userId).lean();
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  
+  const badge = await Badge.findOne({ userId: user._id });
+  
+  // DEBUG: Log what we're about to return
+  console.log('=== USER PROFILE API DEBUG ===');
+  console.log('User ID:', user._id);
+  console.log('verificationDate from DB:', user.verificationDate);
+  console.log('badgeActive:', user.badgeActive);
+  console.log('locationVerified:', user.locationVerified);
+  console.log('kycMatchVerified:', user.kycMatchVerified);
+  console.log('===============================');
+  
+  // Return ALL fields including verificationDate
+  const responseData = {
+    user: {
+      id: user._id,
+      phoneNumber: user.phoneNumber,
+      businessName: user.businessName,
+      businessAddress: user.businessAddress || '',
+      businessCity: user.businessCity || '',
+      businessCountry: user.businessCountry || '',
+      numberVerified: user.numberVerified,
+      locationVerified: user.locationVerified,
+      kycMatchVerified: user.kycMatchVerified,
+      simSwapDetected: user.simSwapDetected,
+      badgeActive: user.badgeActive,
+      verificationDate: user.verificationDate || null,
+      trustScore: user.trustScore,
+      trustGrade: user.trustGrade,
+      trustBreakdown: user.trustBreakdown,
+      userFullName: user.userFullName,
+      userDateOfBirth: user.userDateOfBirth,
+      tenureValid: user.tenureValid,
+      tenureYears: user.tenureYears,
+      badgeId: user.badgeId,
+      qrCodeUrl: user.qrCodeUrl || badge?.qrCodeUrl,
+      shortLink: user.shortLink || badge?.shortLink,
+      locationData: user.locationData || null,
+      kycData: user.kycData || null
+    }
+  };
+  
+  console.log('Response verificationDate:', responseData.user.verificationDate);
+  
+  return NextResponse.json(responseData);
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    await connectToDatabase();
-    
-    const userId = getUserIdFromToken(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const user = await User.findById(userId).lean();
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    const badge = await Badge.findOne({ userId: user._id }).lean();
-    
-    return NextResponse.json({
-      user: {
-        id: user._id,
-        phoneNumber: user.phoneNumber,
-        businessName: user.businessName,
-        businessAddress: user.businessAddress,
-        verifiedNumber: user.verifiedNumber || false,
-        verifiedLocation: user.verifiedLocation || false,
-        badgeActive: user.badgeActive || false,
-        simSwapDetected: user.simSwapDetected || false,
-        verificationDate: user.verificationDate || null,
-        lastSimSwapCheck: user.lastSimSwapCheck || null,
-        trustScore: user.trustScore || 70,
-        badgeId: user.badgeId || null,
-        qrCodeUrl: user.qrCodeUrl || badge?.qrCodeUrl || null,
-        shortLink: user.shortLink || badge?.shortLink || null,
-        badgeViews: badge?.views || 0
-      }
-    });
-  } catch (error) {
-    console.error('Profile API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+export async function PUT(req: NextRequest) {
+  await connectToDatabase();
+  
+  const userId = await getCurrentUser();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  
+  const { businessName, businessAddress, businessCity, businessCountry, userFullName, userDateOfBirth } = await req.json();
+  
+  const updateData: any = {};
+  if (businessName !== undefined) updateData.businessName = businessName;
+  if (businessAddress !== undefined) updateData.businessAddress = businessAddress;
+  if (businessCity !== undefined) updateData.businessCity = businessCity;
+  if (businessCountry !== undefined) updateData.businessCountry = businessCountry;
+  if (userFullName !== undefined) updateData.userFullName = userFullName;
+  if (userDateOfBirth !== undefined) updateData.userDateOfBirth = new Date(userDateOfBirth);
+  
+  updateData.updatedAt = new Date();
+  
+  const user = await User.findByIdAndUpdate(userId, updateData, { new: true });
+  
+  return NextResponse.json({ success: true, user });
 }
 
-export async function PUT(request: NextRequest) {
-  try {
-    await connectToDatabase();
-    
-    const userId = getUserIdFromToken(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const body = await request.json();
-    const { businessName, businessAddress } = body;
-    
-    const user = await User.findById(userId);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    if (businessName) user.businessName = businessName;
-    if (businessAddress) {
-      user.businessAddress = businessAddress;
-      // If address changes, require re-verification
-      user.verifiedLocation = false;
-      user.badgeActive = false;
-    }
-    user.updatedAt = new Date();
-    await user.save();
-    
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Profile update error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+// Also handle OPTIONS for CORS if needed
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 });
 }

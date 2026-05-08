@@ -24,7 +24,7 @@ export default function LoginPage() {
       await login(phoneNumber);
       router.push('/dashboard');
     } catch (err) {
-      setError('Login failed. Please check your phone number and try again.');
+      setError('Login failed. Please check your phone number and try again. Register if you don\'t have an account.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function LoginPage() {
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="tel"
-                  placeholder="08012345678"
+                  placeholder="+99999991000"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-royal-500"

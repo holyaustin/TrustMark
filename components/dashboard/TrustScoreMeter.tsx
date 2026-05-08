@@ -2,7 +2,7 @@
 'use client';
 
 import Card from '@/components/ui/Card';
-import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 interface TrustScoreMeterProps {
   score: number;
@@ -11,35 +11,49 @@ interface TrustScoreMeterProps {
     kycMatch: number;
     simSwap: number;
     numberVerification: number;
-    ageVerification: number;
     tenure: number;
     location: number;
+    kycDataCompleteness: number;
   };
 }
 
 export default function TrustScoreMeter({ score, grade, breakdown }: TrustScoreMeterProps) {
+  // Rainbow colors for grades
   const getGradeColor = () => {
-    if (grade === 'AAA' || grade === 'AA') return 'text-green-600 bg-green-100 dark:bg-green-900/30';
-    if (grade === 'A' || grade === 'BBB') return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30';
-    if (grade === 'BB' || grade === 'B') return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30';
-    return 'text-red-600 bg-red-100 dark:bg-red-900/30';
+    switch (grade) {
+      case 'A+': return 'text-white bg-green-600 dark:bg-green-700';
+      case 'A': return 'text-white bg-green-500 dark:bg-green-600';
+      case 'B+': return 'text-white bg-lime-500 dark:bg-lime-600';
+      case 'B': return 'text-white bg-yellow-500 dark:bg-yellow-600';
+      case 'C+': return 'text-white bg-orange-500 dark:bg-orange-600';
+      case 'C': return 'text-white bg-red-500 dark:bg-red-600';
+      default: return 'text-white bg-gray-500 dark:bg-gray-600';
+    }
   };
 
   const getScoreMessage = () => {
-    if (score >= 80) return 'Excellent trust level - Buyers will highly trust you';
-    if (score >= 60) return 'Good trust level - Most buyers will feel confident';
-    if (score >= 40) return 'Average trust level - Complete missing items to improve';
+    if (score >= 90) return 'Excellent trust level - Buyers will highly trust you';
+    if (score >= 75) return 'Good trust level - Most buyers will feel confident';
+    if (score >= 55) return 'Average trust level - Complete missing items to improve';
     return 'Low trust level - Complete verification to activate your badge';
   };
 
+  // 6 metrics with NEW weights
   const items = breakdown ? [
-    { label: 'KYC Match', value: breakdown.kycMatch, max: 20, completed: breakdown.kycMatch >= 20 },
-    { label: 'SIM Swap Status', value: breakdown.simSwap, max: 20, completed: breakdown.simSwap >= 20 },
-    { label: 'Number Verification', value: breakdown.numberVerification, max: 15, completed: breakdown.numberVerification >= 15 },
-    { label: 'Age Verification', value: breakdown.ageVerification, max: 15, completed: breakdown.ageVerification >= 15 },
-    { label: 'Account Tenure', value: breakdown.tenure, max: 15, completed: breakdown.tenure >= 15 },
-    { label: 'Location Verification', value: breakdown.location, max: 15, completed: breakdown.location >= 15 }
+    { label: 'KYC Match', value: breakdown.kycMatch, max: 20, description: 'Identity matches SIM registration' },
+    { label: 'SIM Swap Status', value: breakdown.simSwap, max: 15, description: 'No recent SIM card changes' },
+    { label: 'Number Verification', value: breakdown.numberVerification, max: 10, description: 'Phone number active' },
+    { label: 'Account Tenure', value: breakdown.tenure, max: 25, description: 'Years with mobile operator' },
+    { label: 'Location Verification', value: breakdown.location, max: 15, description: 'At business address' },
+    { label: 'KYC Data Completeness', value: breakdown.kycDataCompleteness || 0, max: 15, description: 'Complete KYC profile' }
   ] : [];
+
+  // Calculate percentage for each metric (for bar display)
+  const getPercentage = (value: number, max: number) => {
+    if (max === 0) return 0;
+    const percentage = (value / max) * 100;
+    return Math.min(percentage, 100);
+  };
 
   return (
     <Card className="p-6">
@@ -70,15 +84,16 @@ export default function TrustScoreMeter({ score, grade, breakdown }: TrustScoreM
           {items.map((item) => (
             <div key={item.label}>
               <div className="flex justify-between text-xs mb-1">
-                <span>{item.label}</span>
+                <span className="font-medium">{item.label}</span>
                 <span>{item.value}/{item.max}</span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full transition-all ${item.completed ? 'bg-green-500' : 'bg-royal-500'}`}
-                  style={{ width: `${(item.value / item.max) * 100}%` }}
+                  className={`h-2 rounded-full transition-all ${item.value === item.max ? 'bg-green-500' : 'bg-royal'}`}
+                  style={{ width: `${getPercentage(item.value, item.max)}%` }}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
             </div>
           ))}
         </div>

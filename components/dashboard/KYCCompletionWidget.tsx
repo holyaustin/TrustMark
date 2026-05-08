@@ -4,10 +4,9 @@
 import { useState } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { CheckCircle, XCircle, AlertCircle, ArrowRight, MapPin, UserCheck, Calendar } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, ArrowRight, MapPin, UserCheck, Database, Smartphone, Shield, Clock } from 'lucide-react';
 import LocationVerificationForm from '@/components/verification/LocationVerificationForm';
 import KycFillInForm from '@/components/verification/KycFillInForm';
-import AgeVerificationForm from '@/components/verification/AgeVerificationForm';
 
 interface KYCCompletionWidgetProps {
   profile: {
@@ -15,13 +14,15 @@ interface KYCCompletionWidgetProps {
     kycMatchVerified?: boolean;
     locationVerified?: boolean;
     numberVerified?: boolean;
-    userDateOfBirth?: string;
     tenureValid?: boolean;
     simSwapDetected?: boolean;
-    businessState?: string;
+    kycDataComplete?: boolean;
     businessAddress?: string;
+    businessCity?: string;
+    businessCountry?: string;
     kycData?: {
       fullName?: string;
+      address?: string;
       birthdate?: string;
     };
   };
@@ -31,64 +32,73 @@ interface KYCCompletionWidgetProps {
 export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletionWidgetProps) {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showKycModal, setShowKycModal] = useState(false);
-  const [showAgeModal, setShowAgeModal] = useState(false);
 
+  // Calculate KYC Data Completeness based on actual operator data
+  const isKycDataComplete = !!(
+    profile.kycData?.fullName && 
+    profile.kycData?.address && 
+    profile.kycData?.fullName.length > 0 &&
+    profile.kycData?.address.length > 0
+  );
+
+  // 6 metrics with NEW weights
   const items = [
     {
-      key: 'kyc',
+      key: 'kycMatch',
       label: 'KYC Match',
-      description: 'Verify your identity matches SIM registration',
+      description: 'Identity verified against SIM registration',
       completed: profile.kycMatchVerified || false,
       points: 20,
       action: () => setShowKycModal(true),
       icon: UserCheck
     },
     {
-      key: 'sim',
+      key: 'simSwap',
       label: 'SIM Swap Status',
-      description: 'No recent SIM card changes',
+      description: 'No recent SIM card changes detected',
       completed: !profile.simSwapDetected,
-      points: 20,
+      points: 15,
       action: null,
-      icon: null
+      icon: Shield
     },
     {
-      key: 'number',
+      key: 'numberVerify',
       label: 'Number Verification',
-      description: 'Phone number verified with network',
+      description: 'Phone number is active and belongs to you',
       completed: profile.numberVerified || false,
-      points: 15,
+      points: 10,
       action: null,
       auto: true,
-      icon: null
-    },
-    {
-      key: 'age',
-      label: 'Age Verification',
-      description: 'Date of birth provided',
-      completed: !!profile.userDateOfBirth,
-      points: 15,
-      action: () => setShowAgeModal(true),
-      icon: Calendar
+      icon: Smartphone
     },
     {
       key: 'tenure',
       label: 'Account Tenure',
-      description: 'Long-term relationship with operator',
+      description: 'Time with mobile operator',
       completed: profile.tenureValid || false,
-      points: 15,
+      points: 25,
       action: null,
       auto: true,
-      icon: null
+      icon: Clock
     },
     {
       key: 'location',
       label: 'Location Verification',
-      description: 'Confirmed business location state',
+      description: 'Device at registered business address',
       completed: profile.locationVerified || false,
       points: 15,
       action: () => setShowLocationModal(true),
       icon: MapPin
+    },
+    {
+      key: 'kycData',
+      label: 'KYC Data Completeness',
+      description: 'Operator has complete profile (name, address)',
+      completed: isKycDataComplete,
+      points: 15,
+      action: null,
+      auto: true,
+      icon: Database
     }
   ];
 
@@ -106,18 +116,14 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
     onUpdate();
   };
 
-  const handleAgeSuccess = () => {
-    setShowAgeModal(false);
-    onUpdate();
-  };
-
   return (
     <>
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">KYC & Verification Status</h3>
           <div className="text-right">
-            <p className="text-sm font-medium">{totalPoints}/{maxPoints} points</p>
+            <p className="text-sm font-medium">{completedCount}/{items.length} Complete</p>
+            <p className="text-xs text-gray-500">{totalPoints}/{maxPoints} points earned</p>
             <div className="w-24 bg-gray-200 rounded-full h-1.5 mt-1">
               <div 
                 className="bg-royal-600 h-1.5 rounded-full transition-all"
@@ -133,7 +139,7 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
               key={item.key}
               className={`flex items-center justify-between p-3 rounded-lg transition-all ${
                 item.completed 
-                  ? 'bg-green-50 dark:bg-green-900/20' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500' 
                   : 'bg-gray-50 dark:bg-gray-800/50'
               }`}
             >
@@ -144,7 +150,16 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
                   <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0" />
                 )}
                 <div>
-                  <p className="font-medium text-sm">{item.label}</p>
+                  <p className="font-medium text-sm flex items-center gap-2">
+                    {item.label}
+                    {item.icon && <item.icon className="w-3 h-3 text-gray-400" />}
+                    {item.auto && item.completed && (
+                      <span className="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">Auto</span>
+                    )}
+                    {item.auto && !item.completed && (
+                      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Auto</span>
+                    )}
+                  </p>
                   <p className="text-xs text-gray-500">{item.description}</p>
                 </div>
               </div>
@@ -173,8 +188,8 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-royal-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-royal-700 dark:text-royal-300">
-                Complete missing verifications to increase your trust score and unlock your badge.
-                Higher trust score = more buyer confidence = more sales.
+                Complete all 6 verifications to reach 100 points and unlock your badge.
+                Account Tenure gives the most points (25) - build history with your operator!
               </p>
             </div>
           </div>
@@ -182,12 +197,14 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
       </Card>
 
       {/* Location Verification Modal */}
-      {showLocationModal && profile.id && profile.businessState && (
+      {showLocationModal && profile.id && profile.businessAddress && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLocationModal(false)}>
           <div onClick={(e) => e.stopPropagation()}>
             <LocationVerificationForm 
               userId={profile.id} 
-              businessState={profile.businessState}
+              businessAddress={profile.businessAddress}
+              businessCity={profile.businessCity || ''}
+              businessCountry={profile.businessCountry || ''}
               onSuccess={handleLocationSuccess}
               onClose={() => setShowLocationModal(false)}
             />
@@ -208,19 +225,6 @@ export default function KYCCompletionWidget({ profile, onUpdate }: KYCCompletion
               }}
               onSuccess={handleKycSuccess}
               onClose={() => setShowKycModal(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Age Verification Modal */}
-      {showAgeModal && profile.id && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAgeModal(false)}>
-          <div onClick={(e) => e.stopPropagation()}>
-            <AgeVerificationForm 
-              userId={profile.id}
-              onSuccess={handleAgeSuccess}
-              onClose={() => setShowAgeModal(false)}
             />
           </div>
         </div>

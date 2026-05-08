@@ -9,15 +9,37 @@ async function verifyDeviceLocation(
   phoneNumber: string,
   latitude: number,
   longitude: number,
-  radius: number = 500 // 500 meters for business location verification
-): Promise<{ verified: boolean; lastLocationTime?: string; matchRate?: number }> {
+  radius: number = 5000 // 5km radius for business location verification
+): Promise<{ verified: boolean; lastLocationTime?: string; matchRate?: number; resultType?: string }> {
   const NOKIA_API_KEY = process.env.NOKIA_API_KEY!;
   const NOKIA_BASE_URL = process.env.NOKIA_API_BASE_URL || 'https://api.networkascode.nokia.io/v1';
   const USE_SIMULATOR = process.env.USE_SIMULATOR === 'true';
   
-  // For simulator mode, always return success
   if (USE_SIMULATOR) {
-    return { verified: true, matchRate: 95, lastLocationTime: new Date().toISOString() };
+    // Original logic: +99999991000 = TRUE (verified), +99999991001 = FALSE (not verified)
+    if (phoneNumber === '+99999991000') {
+      return { 
+        verified: true, 
+        matchRate: 95, 
+        lastLocationTime: new Date().toISOString(),
+        resultType: 'TRUE'
+      };
+    } else if (phoneNumber === '+99999991001') {
+      return { 
+        verified: false, 
+        matchRate: 0, 
+        lastLocationTime: new Date().toISOString(),
+        resultType: 'FALSE'
+      };
+    } else {
+      // Default for other test numbers
+      return { 
+        verified: true, 
+        matchRate: 85, 
+        lastLocationTime: new Date().toISOString(),
+        resultType: 'TRUE'
+      };
+    }
   }
   
   try {
@@ -33,18 +55,19 @@ async function verifyDeviceLocation(
           areaType: "CIRCLE",
           center: { latitude, longitude },
           radius: radius
-        }
+        },
+        maxAge: 300
       })
     });
     
     const data = await response.json();
+    const resultType = data.verificationResult;
     
-    // verificationResult can be: TRUE, FALSE, PARTIAL, UNKNOWN
-    // For business verification, we consider PARTIAL as acceptable (within proximity)
     return {
-      verified: data.verificationResult === 'TRUE' || data.verificationResult === 'PARTIAL',
+      verified: resultType === 'TRUE' || resultType === 'PARTIAL',
       lastLocationTime: data.lastLocationTime,
-      matchRate: data.matchRate
+      matchRate: data.matchRate || (resultType === 'TRUE' ? 95 : resultType === 'PARTIAL' ? 60 : 0),
+      resultType: resultType
     };
   } catch (error) {
     console.error('Location verification API error:', error);
@@ -78,13 +101,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
   
-  // Verify device is at business location using Nokia/CAMARA API
-  // Default radius: 500 meters (suitable for business location verification)
+  // Use the provided coordinates as the business location to verify against
   const verification = await verifyDeviceLocation(
     user.phoneNumber,
     latitude,
     longitude,
-    500 // 500m radius - can be adjusted
+    5000 // 5km radius
   );
   
   if (verification.verified) {
@@ -93,8 +115,15 @@ export async function POST(req: NextRequest) {
       verifiedAt: new Date(),
       lastLatitude: latitude,
       lastLongitude: longitude,
-      matchRate: verification.matchRate
+      matchRate: verification.matchRate,
+      lastLocationTime: verification.lastLocationTime
     };
+    
+    // Only set verificationDate when BOTH KYC and Location are verified
+    if (user.kycMatchVerified && !user.verificationDate) {
+      user.verificationDate = new Date();
+    }
+    
     user.badgeActive = user.kycMatchVerified || false;
     user.updatedAt = new Date();
     await user.save();
@@ -103,7 +132,8 @@ export async function POST(req: NextRequest) {
       verified: true,
       message: 'Location verified! Your device is at your registered business location.',
       matchRate: verification.matchRate,
-      lastLocationTime: verification.lastLocationTime
+      lastLocationTime: verification.lastLocationTime,
+      resultType: verification.resultType
     });
   }
   

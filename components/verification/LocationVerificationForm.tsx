@@ -1,7 +1,9 @@
 // components/verification/LocationVerificationForm.tsx
+// Add useEffect to fetch business data from DB if props are empty
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { MapPin, Loader2, Navigation, X, CheckCircle } from 'lucide-react';
@@ -17,9 +19,9 @@ interface LocationVerificationFormProps {
 
 export default function LocationVerificationForm({ 
   userId, 
-  businessAddress, 
-  businessCity, 
-  businessCountry, 
+  businessAddress: propAddress,
+  businessCity: propCity,
+  businessCountry: propCountry,
   onSuccess, 
   onClose 
 }: LocationVerificationFormProps) {
@@ -27,6 +29,44 @@ export default function LocationVerificationForm({
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'idle' | 'fetching' | 'verifying' | 'success' | 'failed'>('idle');
   const [matchRate, setMatchRate] = useState<number | null>(null);
+  
+  // State for business info (can come from props or DB)
+  const [businessAddress, setBusinessAddress] = useState(propAddress || '');
+  const [businessCity, setBusinessCity] = useState(propCity || '');
+  const [businessCountry, setBusinessCountry] = useState(propCountry || '');
+  const [loadingBusiness, setLoadingBusiness] = useState(!propAddress && !propCity && !propCountry);
+
+  // Fetch business data from DB if props are empty
+  useEffect(() => {
+    const fetchBusinessData = async () => {
+      // If props are already provided, use them
+      if (propAddress && propCity && propCountry) {
+        setBusinessAddress(propAddress);
+        setBusinessCity(propCity);
+        setBusinessCountry(propCountry);
+        setLoadingBusiness(false);
+        return;
+      }
+      
+      // Otherwise fetch from database
+      try {
+        const response = await fetch('/api/user/profile');
+        if (response.ok) {
+          const data = await response.json();
+          const userData = data.user;
+          setBusinessAddress(userData.businessAddress || '');
+          setBusinessCity(userData.businessCity || '');
+          setBusinessCountry(userData.businessCountry || '');
+        }
+      } catch (error) {
+        console.error('Error fetching business data:', error);
+      } finally {
+        setLoadingBusiness(false);
+      }
+    };
+    
+    fetchBusinessData();
+  }, [propAddress, propCity, propCountry, userId]);
 
   const verifyLocation = () => {
     setStatus('fetching');
@@ -102,7 +142,21 @@ export default function LocationVerificationForm({
     );
   };
 
-  const locationText = `${businessAddress}, ${businessCity}, ${businessCountry}`;
+  // Build display address from available fields
+  const displayAddress = [businessAddress, businessCity, businessCountry]
+    .filter(field => field && field !== 'undefined' && field.trim() !== '')
+    .join(', ') || 'Address not available';
+
+  if (loadingBusiness) {
+    return (
+      <Card className="p-6 relative max-w-md w-full">
+        <div className="text-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin text-royal-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading business information...</p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 relative max-w-md w-full">
@@ -119,14 +173,14 @@ export default function LocationVerificationForm({
         </div>
         <h2 className="text-2xl font-bold">Verify Your Business Location</h2>
         <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
-          Confirm you are at your registered business address
+          Using Nokia/CAMARA Location Verification API
         </p>
       </div>
       
       <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg mb-4">
         <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
           <strong>Registered Address:</strong><br />
-          {locationText}
+          {displayAddress}
         </p>
       </div>
       

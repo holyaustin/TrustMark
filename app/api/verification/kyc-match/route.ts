@@ -37,7 +37,14 @@ export async function POST(req: NextRequest) {
     user.userFullName = fullName;
     user.userDateOfBirth = userBirthdate || undefined;
     user.kycMatchVerified = true;
-    user.badgeActive = user.locationVerified; // Activate if location also done
+    
+    // FIX: Only set verificationDate when BOTH KYC and Location are verified
+    // If location is already verified and KYC is now being verified, set the date
+    if (user.locationVerified && !user.verificationDate) {
+      user.verificationDate = new Date();
+    }
+    
+    user.badgeActive = user.locationVerified || false;
     user.updatedAt = new Date();
     
     // Generate QR code and short link if badge becoming active
@@ -51,15 +58,23 @@ export async function POST(req: NextRequest) {
     
     await user.save();
     
-    // Calculate trust score
+    // Calculate KYC Data Completeness for trust score
+    const kycDataComplete = !!(
+      user.kycData?.fullName && 
+      user.kycData?.address && 
+      user.kycData?.fullName.length > 0 &&
+      user.kycData?.address.length > 0
+    );
+    
+    // Calculate trust score with new weights
     const trustAgent = new TrustScoreAgent();
     const trustResult = trustAgent.calculateScore({
       kycMatchValid: true,
       simSwapSafe: !user.simSwapDetected,
       numberVerified: user.numberVerified,
-      ageVerified: !!user.userDateOfBirth,
       tenureValid: user.tenureValid,
       locationVerified: user.locationVerified,
+      kycDataComplete: kycDataComplete,
       tenureYears: user.tenureYears
     });
     
@@ -73,6 +88,7 @@ export async function POST(req: NextRequest) {
       trustScore: trustResult.totalScore,
       trustGrade: trustResult.grade,
       badgeActive: user.badgeActive,
+      verificationDate: user.verificationDate,
       message: 'KYC verified! Your trust score has been updated.'
     });
   }

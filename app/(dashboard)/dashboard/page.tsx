@@ -14,8 +14,7 @@ import QRDisplay from '@/components/dashboard/QRDisplay';
 import BadgeSymbol from '@/components/ui/BadgeSymbol';
 import LocationVerificationForm from '@/components/verification/LocationVerificationForm';
 import KycFillInForm from '@/components/verification/KycFillInForm';
-import AgeVerificationForm from '@/components/verification/AgeVerificationForm';
-import { Shield, AlertTriangle, RefreshCw, MapPin, UserCheck, Calendar } from 'lucide-react';
+import { Shield, AlertTriangle, RefreshCw, MapPin, UserCheck } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
@@ -25,10 +24,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Modal states for verification steps
+  // Modal states
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showKycModal, setShowKycModal] = useState(false);
-  const [showAgeModal, setShowAgeModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -37,6 +35,8 @@ export default function DashboardPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      console.log('=== FETCHING DASHBOARD DATA ===');
+      
       const [profileRes, scoreRes] = await Promise.all([
         fetch('/api/user/profile'),
         fetch('/api/trust-score')
@@ -44,15 +44,17 @@ export default function DashboardPage() {
       
       if (profileRes.ok) {
         const profileData = await profileRes.json();
-        console.log('Profile loaded:', {
-          id: profileData.user.id,
-          businessName: profileData.user.businessName,
-          businessCity: profileData.user.businessCity,
-          businessCountry: profileData.user.businessCountry,
-          locationVerified: profileData.user.locationVerified,
-          kycMatchVerified: profileData.user.kycMatchVerified
+        console.log('Raw profile API response:', JSON.stringify(profileData, null, 2));
+        
+        // Ensure we have all the fields
+        const userData = profileData.user;
+        console.log('Business fields from API:', {
+          businessAddress: userData.businessAddress,
+          businessCity: userData.businessCity,
+          businessCountry: userData.businessCountry
         });
-        setProfile(profileData.user);
+        
+        setProfile(userData);
       } else {
         console.error('Profile fetch failed:', profileRes.status);
       }
@@ -94,11 +96,6 @@ export default function DashboardPage() {
     await fetchData();
   };
 
-  const handleAgeSuccess = async () => {
-    setShowAgeModal(false);
-    await fetchData();
-  };
-
   if (loading) {
     return (
       <div className="container-custom py-8 text-center">
@@ -117,6 +114,13 @@ export default function DashboardPage() {
   }
 
   const isVerified = profile.badgeActive && !profile.simSwapDetected;
+  
+  // Log what we're about to pass to the modal
+  console.log('=== RENDERING DASHBOARD ===');
+  console.log('profile.id:', profile.id);
+  console.log('profile.businessAddress:', profile.businessAddress);
+  console.log('profile.businessCity:', profile.businessCity);
+  console.log('profile.businessCountry:', profile.businessCountry);
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -179,21 +183,23 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {!profile.locationVerified && profile.businessAddress && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {!profile.locationVerified && (
           <Button 
             variant="primary" 
-            onClick={() => setShowLocationModal(true)}
+            onClick={() => {
+              console.log('Opening location modal with:', {
+                address: profile.businessAddress,
+                city: profile.businessCity,
+                country: profile.businessCountry
+              });
+              setShowLocationModal(true);
+            }}
             className="flex items-center justify-center gap-2"
           >
             <MapPin className="w-4 h-4" />
             Verify Location (+15 pts)
           </Button>
-        )}
-        {!profile.locationVerified && !profile.businessAddress && (
-          <div className="text-sm text-red-500 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-            ⚠️ Business address missing. Please update your profile.
-          </div>
         )}
         {!profile.kycMatchVerified && (
           <Button 
@@ -205,28 +211,16 @@ export default function DashboardPage() {
             Complete KYC (+20 pts)
           </Button>
         )}
-        {!profile.userDateOfBirth && (
-          <Button 
-            variant="outline" 
-            onClick={() => setShowAgeModal(true)}
-            className="flex items-center justify-center gap-2"
-          >
-            <Calendar className="w-4 h-4" />
-            Add Date of Birth (+15 pts)
-          </Button>
-        )}
       </div>
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Trust Score Meter */}
         <TrustScoreMeter 
           score={trustScore?.totalScore || profile.trustScore || 0} 
           grade={trustScore?.grade || profile.trustGrade || 'F'}
           breakdown={trustScore?.breakdown || profile.trustBreakdown}
         />
         
-        {/* KYC Completion Widget */}
         <KYCCompletionWidget 
           profile={profile}
           onUpdate={fetchData}
@@ -241,7 +235,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* QR Code Section (Only if verified) */}
+      {/* QR Code Section */}
       {isVerified && profile.qrCodeUrl && (
         <QRDisplay 
           qrUrl={profile.qrCodeUrl} 
@@ -265,7 +259,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Business Address</p>
-            <p className="font-medium">{profile.businessAddress}</p>
+            <p className="font-medium">{profile.businessAddress || 'Not set'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">City</p>
@@ -276,8 +270,12 @@ export default function DashboardPage() {
             <p className="font-medium">{profile.businessCountry || 'Not set'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">KYC Name (Matched)</p>
+            <p className="text-sm text-gray-500">KYC Name</p>
             <p className="font-medium">{profile.userFullName || 'Not provided'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Account Tenure</p>
+            <p className="font-medium">{profile.tenureYears ? `${profile.tenureYears} years` : 'Not verified'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Verification Date</p>
@@ -285,44 +283,16 @@ export default function DashboardPage() {
               {profile.verificationDate ? new Date(profile.verificationDate).toLocaleDateString() : 'Not yet'}
             </p>
           </div>
-          {profile.locationData?.verifiedAt && (
-            <div>
-              <p className="text-sm text-gray-500">Last Location Verified</p>
-              <p className="font-medium">
-                {new Date(profile.locationData.verifiedAt).toLocaleDateString()}
-                {profile.locationData.matchRate && ` (${profile.locationData.matchRate}% match)`}
-              </p>
-            </div>
-          )}
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="mt-4 w-full md:w-auto"
-          onClick={async () => {
-            // Simple update modal - can be expanded
-            const newAddress = prompt('Update business address:', profile.businessAddress);
-            if (newAddress && newAddress !== profile.businessAddress) {
-              await fetch('/api/user/profile', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ businessAddress: newAddress })
-              });
-              await fetchData();
-            }
-          }}
-        >
-          Update Business Details
-        </Button>
       </Card>
 
-      {/* Location Verification Modal */}
-      {showLocationModal && profile.id && profile.businessAddress && (
+      {/* Location Verification Modal - Pass props directly from profile */}
+      {showLocationModal && profile && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLocationModal(false)}>
           <div onClick={(e) => e.stopPropagation()}>
             <LocationVerificationForm 
               userId={profile.id} 
-              businessAddress={profile.businessAddress}
+              businessAddress={profile.businessAddress || ''}
               businessCity={profile.businessCity || ''}
               businessCountry={profile.businessCountry || ''}
               onSuccess={handleLocationSuccess}
@@ -333,7 +303,7 @@ export default function DashboardPage() {
       )}
 
       {/* KYC Verification Modal */}
-      {showKycModal && profile.id && (
+      {showKycModal && profile && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowKycModal(false)}>
           <div onClick={(e) => e.stopPropagation()}>
             <KycFillInForm 
@@ -345,19 +315,6 @@ export default function DashboardPage() {
               }}
               onSuccess={handleKycSuccess}
               onClose={() => setShowKycModal(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Age Verification Modal */}
-      {showAgeModal && profile.id && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAgeModal(false)}>
-          <div onClick={(e) => e.stopPropagation()}>
-            <AgeVerificationForm 
-              userId={profile.id}
-              onSuccess={handleAgeSuccess}
-              onClose={() => setShowAgeModal(false)}
             />
           </div>
         </div>

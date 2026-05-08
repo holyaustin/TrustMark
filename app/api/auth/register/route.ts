@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   // Generate unique badge ID
   const badgeId = crypto.randomBytes(6).toString('hex').toUpperCase();
   
-  // Create user
+  // Create user - ADD verificationDate with current date
   const user = await User.create({
     phoneNumber: formattedNumber,
     businessName,
@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
       nationality: kycData.nationality
     },
     badgeId,
-    badgeActive: false
+    badgeActive: false,
+    verificationDate: null  // Set to null initially, will be set when badge becomes active
   });
   
   // Create verification log
@@ -92,6 +93,11 @@ export async function POST(req: NextRequest) {
       fullName: kycData.fullName,
       birthdate: kycData.birthdate,
       address: kycData.address
+    },
+    businessInfo: {  // ADD business info to response
+      address: businessAddress,
+      city: businessCity,
+      country: businessCountry
     },
     message: 'Number verified. Proceed to location and KYC verification.'
   });

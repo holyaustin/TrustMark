@@ -1,6 +1,7 @@
+// app/(public)/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -18,15 +19,28 @@ export default function LandingPage() {
   const router = useRouter();
   const [step, setStep] = useState<'register' | 'number' | 'location' | 'kyc' | 'success'>('register');
   const [userId, setUserId] = useState<string | null>(null);
-  const [businessState, setBusinessState] = useState<string>('');
+  const [businessData, setBusinessData] = useState<{
+    address: string;
+    city: string;
+    country: string;
+  }>({ address: '', city: '', country: '' });
   const [kycData, setKycData] = useState<any>(null);
 
-  if (user && user.badgeActive) {
-    router.push('/dashboard');
-    return null;
-  }
+  useEffect(() => {
+    if (user && user.badgeActive) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const closeModal = () => setStep('register');
+
+  if (user && user.badgeActive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse">Redirecting to dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="section-spacing">
@@ -74,7 +88,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Trust Score Preview - NEW */}
+      {/* Trust Score Preview */}
       <section className="container-custom mb-16 md:mb-24">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">
@@ -103,14 +117,14 @@ export default function LandingPage() {
                 <div className="flex justify-between"><span>Number Verify:</span><span className="font-semibold">15/15</span></div>
                 <div className="flex justify-between"><span>Location:</span><span className="font-semibold">15/15</span></div>
                 <div className="flex justify-between"><span>Tenure:</span><span className="font-semibold">10/15</span></div>
-                <div className="flex justify-between"><span>Age Verify:</span><span className="font-semibold">5/15</span></div>
+                <div className="flex justify-between"><span>KYC Data:</span><span className="font-semibold">5/15</span></div>
               </div>
             </div>
           </Card>
         </div>
       </section>
 
-      {/* How It Works - Updated with KYC Flow */}
+      {/* How It Works */}
       <section className="container-custom mb-16 md:mb-24" id="how-it-works">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">
@@ -135,7 +149,7 @@ export default function LandingPage() {
             </div>
             <div className="text-2xl font-bold text-royal-600 mb-2">2</div>
             <h3 className="font-semibold mb-2">Verify Location</h3>
-            <p className="text-sm text-gray-500">Confirm you're in your business state</p>
+            <p className="text-sm text-gray-500">Confirm you're at your business address</p>
           </Card>
           <Card className="card-padding text-center">
             <div className="w-12 h-12 bg-royal-100 dark:bg-royal-900 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -167,7 +181,6 @@ export default function LandingPage() {
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">Mama Blessing's Fashion</h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">TrustMark Verified Seller</p>
               
-              {/* Trust Score Badge */}
               <div className="mt-3 inline-flex items-center gap-2 bg-royal-50 dark:bg-royal-900/30 px-3 py-1 rounded-full">
                 <Shield className="w-3 h-3 text-royal-600" />
                 <span className="text-xs font-semibold text-royal-700">Trust Score: 92% (Grade AAA)</span>
@@ -180,7 +193,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span>Location: Lagos State</span>
+                  <span>Location: Lagos, Nigeria</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
@@ -204,7 +217,7 @@ export default function LandingPage() {
               TrustMark Platform
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Empowering sellers and protecting buyers across Nigeria
+              Empowering sellers and protecting buyers across Africa
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
@@ -228,7 +241,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Grid - Updated with KYC */}
+      {/* Features Grid */}
       <section className="container-custom py-12 md:py-16">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">
@@ -297,15 +310,22 @@ export default function LandingPage() {
         </Card>
       </section>
 
-      {/* Verification Modal - Updated with KYC Step */}
+      {/* Verification Modal - FIXED: Pass business data from registration */}
       {step !== 'register' && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeModal}>
           <div className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             {step === 'number' && (
               <NumberVerificationForm 
-                onSuccess={(id, kyc) => { 
+                onSuccess={(id, kyc, businessInfo) => { 
                   setUserId(id); 
                   setKycData(kyc);
+                  if (businessInfo) {
+                    setBusinessData({
+                      address: businessInfo.address || '',
+                      city: businessInfo.city || '',
+                      country: businessInfo.country || ''
+                    });
+                  }
                   setStep('location'); 
                 }} 
                 onClose={closeModal} 
@@ -314,7 +334,9 @@ export default function LandingPage() {
             {step === 'location' && userId && (
               <LocationVerificationForm 
                 userId={userId} 
-                businessState={businessState}
+                businessAddress={businessData.address}
+                businessCity={businessData.city}
+                businessCountry={businessData.country}
                 onSuccess={() => setStep('kyc')} 
                 onClose={closeModal} 
               />

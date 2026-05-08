@@ -36,6 +36,22 @@ export default function QRDisplay({ qrUrl, shortLink, businessName, verification
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  // FIX: Format date properly, handle invalid dates
+  const formatVerificationDate = () => {
+    if (!verificationDate || verificationDate === 'Invalid Date') {
+      return 'Just now';
+    }
+    const date = new Date(verificationDate);
+    if (isNaN(date.getTime())) {
+      return 'Just now';
+    }
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <Card className="p-6 text-center">
       <div className="flex justify-center mb-4">
@@ -78,7 +94,7 @@ export default function QRDisplay({ qrUrl, shortLink, businessName, verification
       <div className="text-xs text-gray-500 border-t pt-4 mt-2">
         <div className="flex items-center justify-center gap-2 mb-1">
           <CheckCircle className="w-3 h-3 text-green-500" />
-          <span>Verified since: {new Date(verificationDate).toLocaleDateString()}</span>
+          <span>Verified since: {formatVerificationDate()}</span>
         </div>
         <p className="mt-1">Buyers can scan this code to confirm your identity instantly.</p>
       </div>

@@ -7,9 +7,10 @@ import Button from '@/components/ui/Button';
 import { Phone, Loader2, X, Info } from 'lucide-react';
 
 interface NumberVerificationFormProps {
-  onSuccess: (userId: string, kycData: any) => void;
+  onSuccess: (userId: string, kycData: any, businessInfo: { address: string; city: string; country: string }) => void;
   onClose: () => void;
 }
+
 
 // African countries list for dropdown
 const AFRICAN_COUNTRIES = [
@@ -108,7 +109,16 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
     const data = await res.json();
     
     if (res.ok) {
-      onSuccess(data.userId, data.kycData);
+      // Pass business info to parent component along with userId and kycData
+      onSuccess(
+        data.userId, 
+        data.kycData,
+        {
+          address: businessAddress,
+          city: businessCity,
+          country: businessCountry
+        }
+      );
     } else {
       setError(data.error || 'Registration failed');
     }
