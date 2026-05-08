@@ -1,9 +1,9 @@
-// lib/nokia/client.ts - Complete REST API Implementation
+// lib/nokia/client.ts - Updated for Simulator Mode
 import axios from 'axios';
 
-const NOKIA_API_KEY = process.env.NOKIA_API_KEY!;
-const NOKIA_BASE_URL = process.env.NOKIA_API_BASE_URL || 'https://api.networkascode.nokia.io/v1';
-const USE_SIMULATOR = process.env.USE_SIMULATOR === 'true';
+const RAPIDAPI_KEY = process.env.NOKIA_API_KEY!;
+const RAPIDAPI_HOST = 'network-as-code.nokia.rapidapi.com';
+const BASE_URL = 'https://network-as-code.p-eu.rapidapi.com';
 
 // Simulator test numbers from Nokia documentation
 export const SIMULATOR_NUMBERS = {
@@ -13,61 +13,29 @@ export const SIMULATOR_NUMBERS = {
   NOT_FOUND: '+99999990404',
   UNPROCESSABLE: '+99999990422',
   SERVER_ERROR: '+99999990500',
-  BAD_GATEWAY: '+99999990502',
-  SERVICE_UNAVAILABLE: '+99999990503',
-  GATEWAY_TIMEOUT: '+99999990504',
 } as const;
 
-const nokiaClient = axios.create({
-  baseURL: NOKIA_BASE_URL,
+const rapidApiClient = axios.create({
+  baseURL: BASE_URL,
   headers: {
-    'Authorization': `Bearer ${NOKIA_API_KEY}`,
+    'x-rapidapi-key': RAPIDAPI_KEY,
+    'x-rapidapi-host': RAPIDAPI_HOST,
     'Content-Type': 'application/json'
   },
   timeout: 15000
 });
 
-// Helper to simulate network delay for testing
-const simulateDelay = async () => {
-  if (USE_SIMULATOR) {
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-};
-
 /**
  * Number Verification API
- * POST /number-verification
+ * POST /passthrough/camara/v1/number-verification/number-verification/v0/verify
  * Response: { "devicePhoneNumberVerified": true }
  */
 export async function verifyNumber(phoneNumber: string): Promise<{ verified: boolean; error?: string }> {
-  await simulateDelay();
-  
-  // Simulator mode: return based on test number
-  if (USE_SIMULATOR) {
-    if (phoneNumber === SIMULATOR_NUMBERS.VERIFIED) {
-      return { verified: true };
-    }
-    if (phoneNumber === SIMULATOR_NUMBERS.NOT_VERIFIED) {
-      return { verified: false, error: 'Number not verified by network' };
-    }
-    if (phoneNumber === SIMULATOR_NUMBERS.BAD_REQUEST) {
-      return { verified: false, error: 'Invalid phone number format (400)' };
-    }
-    if (phoneNumber === SIMULATOR_NUMBERS.NOT_FOUND) {
-      return { verified: false, error: 'Phone number not found in network (404)' };
-    }
-    if (phoneNumber === SIMULATOR_NUMBERS.SERVER_ERROR) {
-      return { verified: false, error: 'Server error (500). Please try again.' };
-    }
-    // Default simulator response for any other +99 number
-    if (phoneNumber.startsWith('+99')) {
-      return { verified: true };
-    }
-  }
-  
-  // Real API call
   try {
-    const response = await nokiaClient.post('/number-verification', { phoneNumber });
+    const response = await rapidApiClient.post(
+      '/passthrough/camara/v1/number-verification/number-verification/v0/verify',
+      { phoneNumber }
+    );
     return { verified: response.data.devicePhoneNumberVerified === true };
   } catch (error: any) {
     console.error('Number verification failed:', error.response?.data || error.message);
@@ -82,36 +50,24 @@ export async function verifyNumber(phoneNumber: string): Promise<{ verified: boo
 }
 
 /**
- * SIM Swap API
- * POST /sim-swap
- * Response: { "swappedRecently": boolean, "lastSwapDate": string, "daysSinceSwap": number }
+ * SIM Swap Check API
+ * POST /passthrough/camara/v1/sim-swap/sim-swap/v0/check
+ * Response: { "swapped": true/false }
  */
-export async function checkSimSwap(phoneNumber: string): Promise<{
+export async function checkSimSwap(phoneNumber: string, maxAge: number = 240): Promise<{
   swappedRecently: boolean;
   daysSinceSwap?: number;
   lastSwapDate?: string;
 }> {
-  await simulateDelay();
-  
-  // Simulator mode
-  if (USE_SIMULATOR) {
-    // For verified test number, return no swap
-    if (phoneNumber === SIMULATOR_NUMBERS.VERIFIED) {
-      return { swappedRecently: false, daysSinceSwap: 365, lastSwapDate: '2024-01-15' };
-    }
-    // For not verified, simulate a recent swap
-    if (phoneNumber === SIMULATOR_NUMBERS.NOT_VERIFIED) {
-      return { swappedRecently: true, daysSinceSwap: 2, lastSwapDate: new Date().toISOString().split('T')[0] };
-    }
-    return { swappedRecently: false, daysSinceSwap: 180 };
-  }
-  
   try {
-    const response = await nokiaClient.post('/sim-swap', { phoneNumber });
+    const response = await rapidApiClient.post(
+      '/passthrough/camara/v1/sim-swap/sim-swap/v0/check',
+      { phoneNumber, maxAge }
+    );
     return {
-      swappedRecently: response.data.swappedRecently || false,
-      daysSinceSwap: response.data.daysSinceSwap,
-      lastSwapDate: response.data.lastSwapDate,
+      swappedRecently: response.data.swapped === true,
+      daysSinceSwap: undefined,
+      lastSwapDate: undefined
     };
   } catch (error) {
     console.error('SIM swap check failed:', error);
@@ -120,30 +76,49 @@ export async function checkSimSwap(phoneNumber: string): Promise<{
 }
 
 /**
+ * SIM Swap Date API
+ * POST /passthrough/camara/v1/sim-swap/sim-swap/v0/retrieve-date
+ * Response: { "latestSimChange": "2023-07-03T14:27:08.312+02:00" }
+ */
+export async function getSimSwapDate(phoneNumber: string): Promise<{ lastSwapDate?: string }> {
+  try {
+    const response = await rapidApiClient.post(
+      '/passthrough/camara/v1/sim-swap/sim-swap/v0/retrieve-date',
+      { phoneNumber }
+    );
+    return { lastSwapDate: response.data.latestSimChange };
+  } catch (error) {
+    console.error('SIM swap date retrieval failed:', error);
+    return {};
+  }
+}
+
+/**
  * KYC Tenure API
- * POST /kyc-tenure
+ * POST /passthrough/camara/v1/kyc-tenure/kyc-tenure/v0.1/check-tenure
+ * Response: { "tenureDateCheck": true, "contractType": "PAYG" }
  */
 export async function checkTenure(phoneNumber: string): Promise<{
   meetsTenure: boolean;
   contractType?: string;
   tenureYears?: number;
 }> {
-  await simulateDelay();
-  
-  // Simulator mode
-  if (USE_SIMULATOR) {
-    if (phoneNumber === SIMULATOR_NUMBERS.VERIFIED) {
-      return { meetsTenure: true, contractType: 'PAYM', tenureYears: 3 };
-    }
-    return { meetsTenure: true, contractType: 'PAYG', tenureYears: 1 };
-  }
+  // Calculate tenure date (1 year ago for check)
+  const tenureDate = new Date();
+  tenureDate.setFullYear(tenureDate.getFullYear() - 1);
   
   try {
-    const response = await nokiaClient.post('/kyc-tenure', { phoneNumber });
+    const response = await rapidApiClient.post(
+      '/passthrough/camara/v1/kyc-tenure/kyc-tenure/v0.1/check-tenure',
+      { 
+        phoneNumber, 
+        tenureDate: tenureDate.toISOString().split('T')[0] 
+      }
+    );
     return {
-      meetsTenure: response.data.meetsTenure || false,
+      meetsTenure: response.data.tenureDateCheck === true,
       contractType: response.data.contractType,
-      tenureYears: response.data.tenureYears,
+      tenureYears: response.data.tenureDateCheck ? 1 : 0
     };
   } catch (error) {
     console.error('Tenure check failed:', error);
@@ -153,8 +128,8 @@ export async function checkTenure(phoneNumber: string): Promise<{
 
 /**
  * KYC Fill-in API
- * POST /kyc-fill-in
- * Retrieves customer data from operator records
+ * POST /passthrough/camara/v1/kyc-fill-in/kyc-fill-in/v0.4/fill-in
+ * Response: { "name": "Federica Sanchez Arjona", "givenName": "Federica", ... }
  */
 export async function getKycData(phoneNumber: string): Promise<{
   fullName?: string;
@@ -164,29 +139,18 @@ export async function getKycData(phoneNumber: string): Promise<{
   birthdate?: string;
   nationality?: string;
 }> {
-  await simulateDelay();
-  
-  // Simulator mode - return realistic test data
-  if (USE_SIMULATOR) {
-    return {
-      fullName: 'Adebayo Ogunlesi',
-      givenName: 'Adebayo',
-      familyName: 'Ogunlesi',
-      address: '15 Allen Avenue, Ikeja, Lagos',
-      birthdate: '1985-06-15',
-      nationality: 'NG'
-    };
-  }
-  
   try {
-    const response = await nokiaClient.post('/kyc-fill-in', { phoneNumber });
+    const response = await rapidApiClient.post(
+      '/passthrough/camara/v1/kyc-fill-in/kyc-fill-in/v0.4/fill-in',
+      { phoneNumber }
+    );
     return {
       fullName: response.data.name,
-      givenName: response.data.given_name,
-      familyName: response.data.family_name,
+      givenName: response.data.givenName,
+      familyName: response.data.familyName,
       address: response.data.address,
       birthdate: response.data.birthdate,
-      nationality: response.data.nationality,
+      nationality: response.data.nationality
     };
   } catch (error) {
     console.error('KYC fill-in failed:', error);
@@ -196,8 +160,8 @@ export async function getKycData(phoneNumber: string): Promise<{
 
 /**
  * KYC Match API
- * POST /kyc-match
- * Validates user-provided data against operator records
+ * POST /passthrough/camara/v1/kyc-match/kyc-match/v0.3/match
+ * Response: { "nameMatch": "true", "addressMatch": "true", ... }
  */
 export async function verifyKycMatch(
   phoneNumber: string,
@@ -208,32 +172,19 @@ export async function verifyKycMatch(
   addressMatch: boolean;
   overallMatch: boolean;
 }> {
-  await simulateDelay();
-  
-  // Simulator mode
-  if (USE_SIMULATOR) {
-    const kycData = await getKycData(phoneNumber);
-    const nameMatch = fullName.toLowerCase().includes(kycData.fullName?.toLowerCase() || '') ||
-                      kycData.fullName?.toLowerCase().includes(fullName.toLowerCase()) || false;
-    const addressMatch = address.toLowerCase().includes(kycData.address?.toLowerCase() || '') ||
-                         kycData.address?.toLowerCase().includes(address.toLowerCase()) || false;
-    return {
-      nameMatch,
-      addressMatch,
-      overallMatch: nameMatch && addressMatch
-    };
-  }
-  
   try {
-    const response = await nokiaClient.post('/kyc-match', {
-      phoneNumber,
-      name: fullName,
-      address,
-    });
+    const response = await rapidApiClient.post(
+      '/passthrough/camara/v1/kyc-match/kyc-match/v0.3/match',
+      { 
+        phoneNumber, 
+        name: fullName,
+        address: address
+      }
+    );
     return {
-      nameMatch: response.data.nameMatch || false,
-      addressMatch: response.data.addressMatch || false,
-      overallMatch: response.data.overallMatch || false,
+      nameMatch: response.data.nameMatch === 'true',
+      addressMatch: response.data.addressMatch === 'true',
+      overallMatch: response.data.nameMatch === 'true' && response.data.addressMatch === 'true'
     };
   } catch (error) {
     console.error('KYC match failed:', error);
@@ -242,27 +193,63 @@ export async function verifyKycMatch(
 }
 
 /**
- * Location Verification Helper
- * Uses geocoding to check if user is in expected state
+ * Location Verification API
+ * POST /location-verification/v0/verify
+ * Response: { "verificationResult": "TRUE", "lastLocationTime": "..." }
  */
-export async function verifyLocation(
+export async function verifyDeviceLocation(
   phoneNumber: string,
   latitude: number,
   longitude: number,
-  expectedState: string
+  radius: number = 5000
 ): Promise<{
-  matched: boolean;
-  stateMatch?: string;
-  confidence: number;
+  verified: boolean;
+  lastLocationTime?: string;
+  matchRate?: number;
+  resultType?: string;
 }> {
-  await simulateDelay();
-  
-  // Simulator mode - always return success for valid test numbers
-  if (USE_SIMULATOR) {
-    return { matched: true, stateMatch: expectedState, confidence: 95 };
+  try {
+    const response = await rapidApiClient.post(
+      '/location-verification/v0/verify',
+      {
+        device: { phoneNumber },
+        area: {
+          areaType: 'CIRCLE',
+          center: { latitude, longitude },
+          radius: radius
+        }
+      }
+    );
+    
+    const resultType = response.data.verificationResult;
+    return {
+      verified: resultType === 'TRUE' || resultType === 'PARTIAL',
+      lastLocationTime: response.data.lastLocationTime,
+      matchRate: resultType === 'TRUE' ? 95 : resultType === 'PARTIAL' ? 60 : 0,
+      resultType: resultType
+    };
+  } catch (error) {
+    console.error('Location verification API error:', error);
+    return { verified: false };
   }
-  
-  // In production, use a reverse geocoding service
-  // For now, return simulated response
-  return { matched: true, stateMatch: expectedState, confidence: 90 };
+}
+
+/**
+ * Device Status API (Optional)
+ * POST /device-status/v0/connectivity
+ * Response: { "connectivityStatus": "CONNECTED_DATA" }
+ */
+export async function getDeviceStatus(phoneNumber: string): Promise<{
+  connectivityStatus: 'CONNECTED_DATA' | 'CONNECTED_SMS' | 'NOT_CONNECTED';
+}> {
+  try {
+    const response = await rapidApiClient.post(
+      '/device-status/v0/connectivity',
+      { device: { phoneNumber } }
+    );
+    return { connectivityStatus: response.data.connectivityStatus };
+  } catch (error) {
+    console.error('Device status check failed:', error);
+    return { connectivityStatus: 'NOT_CONNECTED' };
+  }
 }

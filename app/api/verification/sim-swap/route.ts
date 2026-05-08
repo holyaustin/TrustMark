@@ -1,8 +1,9 @@
+// app/api/verification/sim-swap/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
 import Badge from '@/lib/models/Badge';
-import { checkSimSwap } from '@/lib/nokia/client';
+import { checkSimSwap, getSimSwapDate } from '@/lib/nokia/client';
 import { getCurrentUser } from '@/lib/utils/auth';
 
 export async function POST(req: NextRequest) {
@@ -18,13 +19,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
   
-  const swapStatus = await checkSimSwap(user.phoneNumber);
+  const [swapStatus, swapDate] = await Promise.all([
+    checkSimSwap(user.phoneNumber),
+    getSimSwapDate(user.phoneNumber)
+  ]);
   
   const wasDetected = user.simSwapDetected;
   const isNowDetected = swapStatus.swappedRecently;
   
   if (isNowDetected && !wasDetected) {
-    // New SIM swap detected - suspend badge
     user.simSwapDetected = true;
     user.badgeActive = false;
     await user.save();
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
       { 
         isActive: false, 
         suspendedAt: new Date(), 
-        suspensionReason: `SIM swap detected on ${swapStatus.lastSwapDate || 'unknown date'}`
+        suspensionReason: `SIM swap detected on ${swapDate.lastSwapDate || 'unknown date'}`
       }
     );
     
@@ -47,8 +50,7 @@ export async function POST(req: NextRequest) {
   
   return NextResponse.json({
     swappedRecently: isNowDetected,
-    daysSinceSwap: swapStatus.daysSinceSwap,
-    lastSwapDate: swapStatus.lastSwapDate,
+    lastSwapDate: swapDate.lastSwapDate,
     badgeSuspended: false
   });
 }

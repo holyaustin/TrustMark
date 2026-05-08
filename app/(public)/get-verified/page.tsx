@@ -14,7 +14,11 @@ export default function GetVerifiedPage() {
   const router = useRouter();
   const [step, setStep] = useState<'number' | 'location' | 'kyc' | 'success'>('number');
   const [userId, setUserId] = useState<string | null>(null);
-  const [businessState, setBusinessState] = useState<string>('');
+  const [businessInfo, setBusinessInfo] = useState<{
+    address: string;
+    city: string;
+    country: string;
+  }>({ address: '', city: '', country: '' });
   const [kycData, setKycData] = useState<any>(null);
 
   const closeModal = () => {
@@ -46,11 +50,14 @@ export default function GetVerifiedPage() {
 
         {step === 'number' && (
           <NumberVerificationForm 
-            onSuccess={(id, kyc) => {
+            onSuccess={(id, kyc, business) => {
               setUserId(id);
               setKycData(kyc);
-              // Extract business state from kycData or set default
-              setBusinessState(kyc?.state || 'Lagos');
+              setBusinessInfo({
+                address: business.address,
+                city: business.city,
+                country: business.country
+              });
               setStep('location');
             }} 
             onClose={closeModal}
@@ -60,7 +67,9 @@ export default function GetVerifiedPage() {
         {step === 'location' && userId && (
           <LocationVerificationForm 
             userId={userId} 
-            businessState={businessState}
+            businessAddress={businessInfo.address}
+            businessCity={businessInfo.city}
+            businessCountry={businessInfo.country}
             onSuccess={() => setStep('kyc')} 
             onClose={closeModal}
           />

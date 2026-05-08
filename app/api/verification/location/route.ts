@@ -2,78 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
+import { verifyDeviceLocation } from '@/lib/nokia/client';
 import { getCurrentUser } from '@/lib/utils/auth';
-
-// Nokia/CAMARA Location Verification API call
-async function verifyDeviceLocation(
-  phoneNumber: string,
-  latitude: number,
-  longitude: number,
-  radius: number = 5000 // 5km radius for business location verification
-): Promise<{ verified: boolean; lastLocationTime?: string; matchRate?: number; resultType?: string }> {
-  const NOKIA_API_KEY = process.env.NOKIA_API_KEY!;
-  const NOKIA_BASE_URL = process.env.NOKIA_API_BASE_URL || 'https://api.networkascode.nokia.io/v1';
-  const USE_SIMULATOR = process.env.USE_SIMULATOR === 'true';
-  
-  if (USE_SIMULATOR) {
-    // Original logic: +99999991000 = TRUE (verified), +99999991001 = FALSE (not verified)
-    if (phoneNumber === '+99999991000') {
-      return { 
-        verified: true, 
-        matchRate: 95, 
-        lastLocationTime: new Date().toISOString(),
-        resultType: 'TRUE'
-      };
-    } else if (phoneNumber === '+99999991001') {
-      return { 
-        verified: false, 
-        matchRate: 0, 
-        lastLocationTime: new Date().toISOString(),
-        resultType: 'FALSE'
-      };
-    } else {
-      // Default for other test numbers
-      return { 
-        verified: true, 
-        matchRate: 85, 
-        lastLocationTime: new Date().toISOString(),
-        resultType: 'TRUE'
-      };
-    }
-  }
-  
-  try {
-    const response = await fetch(`${NOKIA_BASE_URL}/location-verification/v1/verify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${NOKIA_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        device: { phoneNumber },
-        area: {
-          areaType: "CIRCLE",
-          center: { latitude, longitude },
-          radius: radius
-        },
-        maxAge: 300
-      })
-    });
-    
-    const data = await response.json();
-    const resultType = data.verificationResult;
-    
-    return {
-      verified: resultType === 'TRUE' || resultType === 'PARTIAL',
-      lastLocationTime: data.lastLocationTime,
-      matchRate: data.matchRate || (resultType === 'TRUE' ? 95 : resultType === 'PARTIAL' ? 60 : 0),
-      resultType: resultType
-    };
-  } catch (error) {
-    console.error('Location verification API error:', error);
-    return { verified: false };
-  }
-}
 
 export async function POST(req: NextRequest) {
   await connectToDatabase();
@@ -106,7 +36,7 @@ export async function POST(req: NextRequest) {
     user.phoneNumber,
     latitude,
     longitude,
-    5000 // 5km radius
+    5000 // 5km radius for business location
   );
   
   if (verification.verified) {
