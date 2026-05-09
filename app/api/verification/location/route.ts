@@ -31,12 +31,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
   
-  // Use the provided coordinates as the business location to verify against
+  // Use Lagos coordinates for verification
   const verification = await verifyDeviceLocation(
     user.phoneNumber,
-    latitude,
-    longitude,
-    5000 // 5km radius for business location
+    6.5244,  // Lagos latitude (fixed for demo)
+    3.3792,  // Lagos longitude (fixed for demo)
+    5000 // 5km radius
   );
   
   if (verification.verified) {

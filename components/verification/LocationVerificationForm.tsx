@@ -1,12 +1,11 @@
 // components/verification/LocationVerificationForm.tsx
-// Add useEffect to fetch business data from DB if props are empty
-
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { MapPin, Loader2, Navigation, X, CheckCircle } from 'lucide-react';
+import { MapPin, Loader2, Navigation, X, CheckCircle, ArrowRight, AlertCircle } from 'lucide-react';
 
 interface LocationVerificationFormProps {
   userId: string;
@@ -25,6 +24,7 @@ export default function LocationVerificationForm({
   onSuccess, 
   onClose 
 }: LocationVerificationFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'idle' | 'fetching' | 'verifying' | 'success' | 'failed'>('idle');
@@ -39,7 +39,6 @@ export default function LocationVerificationForm({
   // Fetch business data from DB if props are empty
   useEffect(() => {
     const fetchBusinessData = async () => {
-      // If props are already provided, use them
       if (propAddress && propCity && propCountry) {
         setBusinessAddress(propAddress);
         setBusinessCity(propCity);
@@ -48,7 +47,6 @@ export default function LocationVerificationForm({
         return;
       }
       
-      // Otherwise fetch from database
       try {
         const response = await fetch('/api/user/profile');
         if (response.ok) {
@@ -142,6 +140,12 @@ export default function LocationVerificationForm({
     );
   };
 
+  const skipToDashboard = () => {
+    // Close the modal and redirect to dashboard
+    onClose();
+    router.push('/dashboard');
+  };
+
   // Build display address from available fields
   const displayAddress = [businessAddress, businessCity, businessCountry]
     .filter(field => field && field !== 'undefined' && field.trim() !== '')
@@ -150,6 +154,12 @@ export default function LocationVerificationForm({
   if (loadingBusiness) {
     return (
       <Card className="p-6 relative max-w-md w-full">
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+        >
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
         <div className="text-center py-8">
           <Loader2 className="w-8 h-8 animate-spin text-royal-600 mx-auto mb-4" />
           <p className="text-gray-500">Loading business information...</p>
@@ -186,7 +196,15 @@ export default function LocationVerificationForm({
       
       {error && (
         <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg mb-4 text-sm">
-          {error}
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p>{error}</p>
+              <p className="text-xs mt-1 text-red-500">
+                You can still proceed to dashboard and complete verification later.
+              </p>
+            </div>
+          </div>
         </div>
       )}
       
@@ -204,6 +222,9 @@ export default function LocationVerificationForm({
           <p className="text-sm text-gray-500 mt-2">
             Your device is confirmed to be at your business location.
           </p>
+          <Button onClick={skipToDashboard} className="mt-4 w-full">
+            Continue to Dashboard →
+          </Button>
         </div>
       ) : (
         <>
@@ -221,7 +242,7 @@ export default function LocationVerificationForm({
           <Button 
             onClick={verifyLocation} 
             disabled={loading || status !== 'idle'} 
-            className="w-full"
+            className="w-full mb-3"
           >
             {status === 'fetching' && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {status === 'fetching' && 'Getting your location...'}
@@ -230,6 +251,27 @@ export default function LocationVerificationForm({
             {status === 'idle' && 'Share My Location →'}
             {status === 'failed' && 'Try Again →'}
           </Button>
+          
+          {/* Skip to Dashboard Button - Shows when verification fails or user wants to skip */}
+          {(status === 'failed' || error) && (
+            <Button 
+              variant="outline" 
+              onClick={skipToDashboard}
+              className="w-full"
+            >
+              Skip to Dashboard <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+          
+          {/* Always show skip option at bottom for convenience */}
+          {status === 'idle' && (
+            <button
+              onClick={skipToDashboard}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mt-3 py-2 transition"
+            >
+              Skip for now → Complete verification later from dashboard
+            </button>
+          )}
         </>
       )}
     </Card>

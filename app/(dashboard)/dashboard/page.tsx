@@ -16,13 +16,64 @@ import LocationVerificationForm from '@/components/verification/LocationVerifica
 import KycFillInForm from '@/components/verification/KycFillInForm';
 import { Shield, AlertTriangle, RefreshCw, MapPin, UserCheck } from 'lucide-react';
 
+interface ProfileData {
+  id: string;
+  phoneNumber: string;
+  businessName: string;
+  businessAddress: string;
+  businessCity: string;
+  businessCountry: string;
+  numberVerified: boolean;
+  locationVerified: boolean;
+  kycMatchVerified: boolean;
+  simSwapDetected: boolean;
+  badgeActive: boolean;
+  verificationDate: string | null;
+  trustScore: number;
+  trustGrade: string;
+  trustBreakdown: {
+    kycMatch: number;
+    simSwap: number;
+    numberVerification: number;
+    tenure: number;
+    location: number;
+    kycDataCompleteness: number;
+  };
+  userFullName: string | null;
+  userDateOfBirth: string | null;
+  tenureValid: boolean;
+  tenureYears: number;
+  badgeId: string;
+  qrCodeUrl: string | null;
+  shortLink: string | null;
+  locationData: any;
+  kycData: any;
+  createdAt?: string;
+}
+
+interface TrustScoreData {
+  totalScore: number;
+  grade: string;
+  breakdown: {
+    kycMatch: number;
+    simSwap: number;
+    numberVerification: number;
+    tenure: number;
+    location: number;
+    kycDataCompleteness: number;
+  };
+  recommendations: string[];
+  lastCalculated: Date;
+}
+
 export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
-  const [trustScore, setTrustScore] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [trustScore, setTrustScore] = useState<TrustScoreData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingQR, setGeneratingQR] = useState(false);
   
   // Modal states
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -46,15 +97,13 @@ export default function DashboardPage() {
         const profileData = await profileRes.json();
         console.log('Raw profile API response:', JSON.stringify(profileData, null, 2));
         
-        // Ensure we have all the fields
-        const userData = profileData.user;
-        console.log('Business fields from API:', {
-          businessAddress: userData.businessAddress,
-          businessCity: userData.businessCity,
-          businessCountry: userData.businessCountry
-        });
-        
+        const userData = profileData.user as ProfileData;
         setProfile(userData);
+        
+        // Generate QR code if not exists (always ensure QR is available)
+        if (!userData.qrCodeUrl && userData.id) {
+          await generateQRCode(userData.id);
+        }
       } else {
         console.error('Profile fetch failed:', profileRes.status);
       }
@@ -67,6 +116,33 @@ export default function DashboardPage() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateQRCode = async (userId: string) => {
+    if (generatingQR) return;
+    setGeneratingQR(true);
+    try {
+      console.log('Generating QR code for user:', userId);
+      const res = await fetch('/api/badge/generate', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.qrCodeUrl) {
+        console.log('QR code generated successfully');
+        setProfile((prev: ProfileData | null) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            qrCodeUrl: data.qrCodeUrl,
+            shortLink: data.shortLink
+          };
+        });
+      } else {
+        console.error('QR generation failed:', data.error);
+      }
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+    } finally {
+      setGeneratingQR(false);
     }
   };
 
@@ -113,21 +189,30 @@ export default function DashboardPage() {
     );
   }
 
-  const isVerified = profile.badgeActive && !profile.simSwapDetected;
+  // Get current trust score and grade
+  const currentScore = trustScore?.totalScore || profile.trustScore || 0;
+  const currentGrade = trustScore?.grade || profile.trustGrade || 'F';
   
-  // Log what we're about to pass to the modal
+  // QR code is always shown (we generate if missing)
+  const showQR = true;
+
   console.log('=== RENDERING DASHBOARD ===');
-  console.log('profile.id:', profile.id);
-  console.log('profile.businessAddress:', profile.businessAddress);
-  console.log('profile.businessCity:', profile.businessCity);
-  console.log('profile.businessCountry:', profile.businessCountry);
+  console.log('Current Trust Score:', currentScore);
+  console.log('Current Grade:', currentGrade);
+  console.log('QR URL:', profile.qrCodeUrl);
+  console.log('Short Link:', profile.shortLink);
 
   return (
     <div className="container-custom py-6 md:py-8">
-      {/* Header with Badge */}
+      {/* Header with Large Badge */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex items-center gap-3">
-          <BadgeSymbol size="md" showText={true} />
+        <div className="flex items-center gap-4">
+          <BadgeSymbol 
+            size="lg" 
+            showText={true} 
+            score={currentScore}
+            grade={currentGrade}
+          />
           <div>
             <h1 className="text-2xl font-bold">Seller Dashboard</h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -153,55 +238,52 @@ export default function DashboardPage() {
 
       {/* Verification Status Banner */}
       <div className={`p-4 rounded-lg mb-6 ${
-        isVerified 
+        profile.numberVerified 
           ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800' 
           : 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800'
       }`}>
         <div className="flex items-center gap-3">
-          {isVerified ? (
+          {profile.numberVerified ? (
             <Shield className="w-5 h-5 text-green-600" />
           ) : (
             <AlertTriangle className="w-5 h-5 text-yellow-600" />
           )}
           <div className="flex-1">
             <p className="font-semibold">
-              {isVerified ? 'Your TrustMark badge is ACTIVE' : 'Your TrustMark badge is PENDING'}
+              {profile.numberVerified ? 'Your TrustMark profile is ACTIVE' : 'Complete phone verification to activate full features'}
             </p>
             <p className="text-sm">
-              {isVerified 
-                ? 'Buyers can verify your identity. Share your QR code with confidence.' 
-                : profile.simSwapDetected 
-                  ? '⚠️ SIM swap detected. Please contact support to re-verify your identity.'
-                  : !profile.kycMatchVerified
-                    ? 'Complete KYC verification to activate your badge and increase trust score.'
-                    : !profile.locationVerified
-                      ? 'Verify your business location to activate your badge.'
-                      : 'Complete all verification steps to activate your badge.'}
+              {profile.numberVerified 
+                ? 'Your trust score is visible to buyers. Complete additional verifications to increase your score.' 
+                : 'Verify your phone number to start building your trust score and display your badge.'}
             </p>
           </div>
         </div>
       </div>
 
       {/* Quick Actions Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {!profile.locationVerified && (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {!profile.numberVerified && (
           <Button 
             variant="primary" 
-            onClick={() => {
-              console.log('Opening location modal with:', {
-                address: profile.businessAddress,
-                city: profile.businessCity,
-                country: profile.businessCountry
-              });
-              setShowLocationModal(true);
-            }}
+            onClick={() => router.push('/')}
+            className="flex items-center justify-center gap-2"
+          >
+            <Shield className="w-4 h-4" />
+            Verify Phone Number
+          </Button>
+        )}
+        {!profile.locationVerified && profile.numberVerified && (
+          <Button 
+            variant="primary" 
+            onClick={() => setShowLocationModal(true)}
             className="flex items-center justify-center gap-2"
           >
             <MapPin className="w-4 h-4" />
             Verify Location (+15 pts)
           </Button>
         )}
-        {!profile.kycMatchVerified && (
+        {!profile.kycMatchVerified && profile.numberVerified && (
           <Button 
             variant="primary" 
             onClick={() => setShowKycModal(true)}
@@ -216,8 +298,8 @@ export default function DashboardPage() {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <TrustScoreMeter 
-          score={trustScore?.totalScore || profile.trustScore || 0} 
-          grade={trustScore?.grade || profile.trustGrade || 'F'}
+          score={currentScore} 
+          grade={currentGrade}
           breakdown={trustScore?.breakdown || profile.trustBreakdown}
         />
         
@@ -235,15 +317,34 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* QR Code Section */}
-      {isVerified && profile.qrCodeUrl && (
-        <QRDisplay 
-          qrUrl={profile.qrCodeUrl} 
-          shortLink={profile.shortLink} 
-          businessName={profile.businessName}
-          verificationDate={profile.verificationDate}
-        />
-      )}
+      {/* QR Code Section - ALWAYS SHOW */}
+      <div className="mb-6">
+        {generatingQR ? (
+          <Card className="p-6 text-center">
+            <div className="flex flex-col items-center justify-center py-8">
+              <RefreshCw className="w-8 h-8 animate-spin text-royal-600 mb-3" />
+              <p className="text-gray-500">Generating your unique badge link...</p>
+            </div>
+          </Card>
+        ) : profile.qrCodeUrl ? (
+          <QRDisplay 
+            qrUrl={profile.qrCodeUrl} 
+            shortLink={profile.shortLink || ''} 
+            businessName={profile.businessName}
+            verificationDate={profile.verificationDate || ''}
+            trustScore={currentScore}
+            trustGrade={currentGrade}
+          />
+        ) : (
+          <Card className="p-6 text-center">
+            <p className="text-gray-500 mb-3">Your badge link is being prepared...</p>
+            <Button size="sm" onClick={() => generateQRCode(profile.id)} disabled={generatingQR}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${generatingQR ? 'animate-spin' : ''}`} />
+              Generate Badge Link
+            </Button>
+          </Card>
+        )}
+      </div>
 
       {/* Business Info Card */}
       <Card className="p-6">
@@ -270,15 +371,15 @@ export default function DashboardPage() {
             <p className="font-medium">{profile.businessCountry || 'Not set'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">KYC Name</p>
-            <p className="font-medium">{profile.userFullName || 'Not provided'}</p>
+            <p className="text-sm text-gray-500">Trust Score</p>
+            <p className="font-medium">{currentScore}% ({currentGrade})</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Account Tenure</p>
             <p className="font-medium">{profile.tenureYears ? `${profile.tenureYears} years` : 'Not verified'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Verification Date</p>
+            <p className="text-sm text-gray-500">Member Since</p>
             <p className="font-medium">
               {profile.verificationDate ? new Date(profile.verificationDate).toLocaleDateString() : 'Not yet'}
             </p>
@@ -286,7 +387,7 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Location Verification Modal - Pass props directly from profile */}
+      {/* Location Verification Modal */}
       {showLocationModal && profile && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLocationModal(false)}>
           <div onClick={(e) => e.stopPropagation()}>

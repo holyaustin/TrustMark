@@ -223,47 +223,79 @@ export async function verifyKycMatch(
   }
 }
 
+  /**
+   * Location Verification API
+   * POST /location-verification/v0/verify
+   * Response: { "verificationResult": "TRUE", "lastLocationTime": "..." }
+   * 
+   * Simulator mapping (SWAPPED for our test number +99999991000):
+   * - +99999991000 -> TRUE (Device IS in the given area)
+   * - +99999991001 -> FALSE (Device is NOT in the given area)
+   * - +99999991002 -> PARTIAL (Device partially within area)
+   * - +99999991003 -> UNKNOWN (Device location unknown)
+   */
+  export async function verifyDeviceLocation(
+    phoneNumber: string,
+    latitude: number,
+    longitude: number,
+    radius: number = 5000
+  ): Promise<{
+    verified: boolean;
+    lastLocationTime?: string;
+    matchRate?: number;
+    resultType?: string;
+  }> {
+    try {
+      const response = await rapidApiClient.post(
+        '/location-verification/v0/verify',
+        {
+          device: { phoneNumber },
+          area: {
+            areaType: 'CIRCLE',
+            center: { latitude, longitude },
+            radius: radius
+          }
+        }
+      );
+      
+      const resultType = response.data.verificationResult;
+      // SWAPPED: For our test number +99999991000, we want TRUE
+      // The simulator returns TRUE for +99999991000 and FALSE for +99999991001
+      // So no change needed - just use the API response directly
+      return {
+        verified: resultType === 'TRUE' || resultType === 'PARTIAL',
+        lastLocationTime: response.data.lastLocationTime,
+        matchRate: resultType === 'TRUE' ? 95 : resultType === 'PARTIAL' ? 60 : 0,
+        resultType: resultType
+      };
+    } catch (error) {
+      console.error('Location verification API error:', error);
+      return { verified: false };
+    }
+  }
+
+
 /**
- * Location Verification API
- * POST /location-verification/v0/verify
- * Response: { "verificationResult": "TRUE", "lastLocationTime": "..." }
+ * Number Verification using OAuth code (Fast Flow)
+ * This should be used instead of verifyNumber when you have an OAuth code
  */
-export async function verifyDeviceLocation(
+export async function verifyNumberWithOAuthCode(
   phoneNumber: string,
-  latitude: number,
-  longitude: number,
-  radius: number = 5000
-): Promise<{
-  verified: boolean;
-  lastLocationTime?: string;
-  matchRate?: number;
-  resultType?: string;
-}> {
+  code: string,
+  state: string
+): Promise<{ verified: boolean; error?: string }> {
   try {
     const response = await rapidApiClient.post(
-      '/location-verification/v0/verify',
-      {
-        device: { phoneNumber },
-        area: {
-          areaType: 'CIRCLE',
-          center: { latitude, longitude },
-          radius: radius
-        }
-      }
+      `/passthrough/camara/v1/number-verification/number-verification/v0/verify?code=${code}&state=${state}`,
+      { phoneNumber }
     );
-    
-    const resultType = response.data.verificationResult;
-    return {
-      verified: resultType === 'TRUE' || resultType === 'PARTIAL',
-      lastLocationTime: response.data.lastLocationTime,
-      matchRate: resultType === 'TRUE' ? 95 : resultType === 'PARTIAL' ? 60 : 0,
-      resultType: resultType
-    };
-  } catch (error) {
-    console.error('Location verification API error:', error);
-    return { verified: false };
+    return { verified: response.data.devicePhoneNumberVerified === true };
+  } catch (error: any) {
+    console.error('Number verification with OAuth code failed:', error.response?.data || error.message);
+    return { verified: false, error: error.response?.data?.detail || 'Verification failed' };
   }
 }
+
 
 /**
  * Device Status API

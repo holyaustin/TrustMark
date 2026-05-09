@@ -12,10 +12,11 @@ import NumberVerificationForm from '@/components/verification/NumberVerification
 import LocationVerificationForm from '@/components/verification/LocationVerificationForm';
 import KycFillInForm from '@/components/verification/KycFillInForm';
 import VerificationSuccess from '@/components/verification/VerificationSuccess';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Shield, QrCode, Clock, CheckCircle, Users, TrendingUp, Award, MapPin, Phone } from 'lucide-react';
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState<'register' | 'number' | 'location' | 'kyc' | 'success'>('register');
   const [userId, setUserId] = useState<string | null>(null);
@@ -25,6 +26,124 @@ export default function LandingPage() {
     country: string;
   }>({ address: '', city: '', country: '' });
   const [kycData, setKycData] = useState<any>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  useEffect(() => {
+    // Check if we're returning from OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const verified = urlParams.get('verified');
+    const error = urlParams.get('error');
+    const errorMessage = urlParams.get('message');
+    const phoneFromUrl = urlParams.get('phone');
+    const codeFromUrl = urlParams.get('code');
+    const stateFromUrl = urlParams.get('state');
+    
+    console.log('OAuth callback params - verified:', verified, 'phone:', phoneFromUrl, 'code:', codeFromUrl, 'state:', stateFromUrl, 'error:', error, 'message:', errorMessage);
+    
+    if (verified === 'true' && phoneFromUrl) {
+      // Show loading spinner immediately
+      setIsVerifying(true);
+      
+      // Get pending business info from session storage
+      const pendingInfo = sessionStorage.getItem('pendingBusinessInfo');
+      console.log('Pending business info from sessionStorage:', pendingInfo);
+      
+      if (pendingInfo) {
+        const businessInfo = JSON.parse(pendingInfo);
+        console.log('Parsed business info:', businessInfo);
+        
+        // After OAuth success, complete registration with stored business info
+        const completeRegistrationAfterOAuth = async () => {
+          // Use code and state from URL (they are passed by the callback redirect)
+          const code = codeFromUrl;
+          const state = stateFromUrl;
+          
+          console.log('OAuth code from URL:', code, 'state:', state);
+          
+          if (!code || !state) {
+            console.error('Missing code or state in URL');
+            setOauthError('Missing verification code. Please try again.');
+            setIsVerifying(false);
+            sessionStorage.removeItem('pendingBusinessInfo');
+            window.history.replaceState({}, '', '/');
+            return;
+          }
+          
+          try {
+            // Call register API with OAuth code and state
+            const res = await fetch('/api/auth/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phoneNumber: phoneFromUrl,
+                businessName: businessInfo.businessName,
+                businessAddress: businessInfo.businessAddress,
+                businessCity: businessInfo.businessCity,
+                businessCountry: businessInfo.businessCountry,
+                oauthCode: code,
+                oauthState: state
+              })
+            });
+            
+            const data = await res.json();
+            console.log('Registration response:', data);
+            
+            if (res.ok) {
+              setUserId(data.userId);
+              setKycData(data.kycData);
+              setBusinessData({
+                address: businessInfo.businessAddress,
+                city: businessInfo.businessCity,
+                country: businessInfo.businessCountry
+              });
+              setIsVerifying(false);
+              setStep('location');
+            } else {
+              console.error('Registration failed:', data.error);
+              setOauthError(data.error || 'Registration failed');
+              setIsVerifying(false);
+            }
+          } catch (err) {
+            console.error('Registration error:', err);
+            setOauthError('Failed to complete registration');
+            setIsVerifying(false);
+          } finally {
+            sessionStorage.removeItem('pendingBusinessInfo');
+            // Clean URL without reloading
+            window.history.replaceState({}, '', '/');
+          }
+        };
+        
+        completeRegistrationAfterOAuth();
+      } else {
+        // No pending business info - this could happen if sessionStorage was cleared
+        console.warn('No pending business info found in sessionStorage');
+        setOauthError('Missing business information. Please start registration again.');
+        setIsVerifying(false);
+        window.history.replaceState({}, '', '/');
+      }
+    }
+    
+    if (error) {
+      console.error('Verification error from URL:', error, 'Message:', errorMessage);
+      let displayMessage = 'Verification error occurred. Please try again.';
+      if (error === 'verification_failed') {
+        displayMessage = 'Number verification failed. Please try again.';
+      } else if (error === 'missing_auth_params') {
+        displayMessage = 'Missing authorization parameters. Please try again.';
+      } else if (error === 'invalid_state') {
+        displayMessage = 'Security validation failed. Please try again.';
+      } else if (error === 'missing_phone') {
+        displayMessage = 'Phone number missing. Please start registration again.';
+      } else if (error === 'verification_error' && errorMessage) {
+        displayMessage = `Verification error: ${errorMessage}. Please try again.`;
+      }
+      setOauthError(displayMessage);
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   useEffect(() => {
     if (user && user.badgeActive) {
@@ -33,6 +152,11 @@ export default function LandingPage() {
   }, [user, router]);
 
   const closeModal = () => setStep('register');
+
+  // Show loading spinner during OAuth verification
+  if (isVerifying) {
+    return <LoadingSpinner />;
+  }
 
   if (user && user.badgeActive) {
     return (
@@ -47,13 +171,16 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="container-custom mb-16 md:mb-24">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="flex justify-center mb-6">
-            <BadgeSymbol size="lg" showText={true} />
-          </div>
+          {/* Restored badge - Network Verified • KYC Matched */}
           <div className="inline-flex items-center gap-2 bg-white/50 dark:bg-royal-900/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
             <Shield className="w-4 h-4 text-royal-600 dark:text-royal-300" />
             <span className="text-sm font-medium text-royal-700 dark:text-royal-300">Network Verified • KYC Matched</span>
           </div>
+          
+          <div className="flex justify-center mb-6">
+            <BadgeSymbol size="lg" showText={true} />
+          </div>
+          
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-royal-900 dark:text-white mb-4">
             Trust in Social Commerce
           </h1>
@@ -102,7 +229,7 @@ export default function LandingPage() {
           <Card className="card-padding shadow-xl">
             <div className="text-center">
               <div className="flex justify-center mb-4">
-                <BadgeSymbol size="md" showText={false} />
+                <BadgeSymbol size="md" showText={true} />
               </div>
               <div className="text-4xl font-bold text-royal-600 mb-2">85<span className="text-xl">%</span></div>
               <div className="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mb-3">
@@ -310,7 +437,20 @@ export default function LandingPage() {
         </Card>
       </section>
 
-      {/* Verification Modal - FIXED: Pass business data from registration */}
+      {/* OAuth Error Display */}
+      {oauthError && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          {oauthError}
+          <button 
+            onClick={() => setOauthError(null)}
+            className="ml-3 text-white hover:text-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Verification Modal */}
       {step !== 'register' && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeModal}>
           <div className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>

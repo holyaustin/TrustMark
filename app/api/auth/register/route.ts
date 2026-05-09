@@ -3,14 +3,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db/mongodb';
 import User from '@/lib/models/User';
 import VerificationLog from '@/lib/models/VerificationLog';
-import { verifyNumber, getKycData, checkSimSwap, checkTenure } from '@/lib/nokia/client';
+import { verifyNumber, verifyNumberWithOAuthCode, getKycData, checkSimSwap, checkTenure } from '@/lib/nokia/client';
 import { createToken } from '@/lib/utils/jwt';
 import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   await connectToDatabase();
   
-  const { phoneNumber, businessName, businessAddress, businessCity, businessCountry } = await req.json();
+  const { 
+    phoneNumber, 
+    businessName, 
+    businessAddress, 
+    businessCity, 
+    businessCountry, 
+    oauthCode, 
+    oauthState 
+  } = await req.json();
+  
+  console.log('Registration request:', { phoneNumber, businessName, oauthCode, oauthState });
   
   if (!phoneNumber || !businessName || !businessAddress || !businessCity || !businessCountry) {
     return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
@@ -28,35 +38,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Phone number already registered' }, { status: 400 });
   }
   
-  // 1. Verify number via Nokia API
-  const numberVerification = await verifyNumber(formattedNumber);
+  let numberVerified = false;
   
-  if (!numberVerification.verified) {
-    return NextResponse.json({ 
-      error: numberVerification.error || 'Phone number verification failed. Use +99999991000 for testing.' 
-    }, { status: 400 });
+  // Verify number using OAuth code if provided, otherwise use direct API
+  if (oauthCode && oauthState) {
+    console.log('Verifying number with OAuth code:', oauthCode);
+    const verification = await verifyNumberWithOAuthCode(formattedNumber, oauthCode, oauthState);
+    
+    if (!verification.verified) {
+      return NextResponse.json({ 
+        error: verification.error || 'Phone number verification failed' 
+      }, { status: 400 });
+    }
+    numberVerified = true;
+  } else {
+    // Fallback for non-OAuth flow (rare)
+    const numberVerification = await verifyNumber(formattedNumber);
+    if (!numberVerification.verified) {
+      return NextResponse.json({ 
+        error: numberVerification.error || 'Phone number verification failed' 
+      }, { status: 400 });
+    }
+    numberVerified = true;
   }
   
-  // 2. Get KYC data from operator (for auto-fill)
+  // Get KYC data from operator (for auto-fill)
   const kycData = await getKycData(formattedNumber);
   
-  // 3. Check SIM swap status
+  // Check SIM swap status
   const simSwap = await checkSimSwap(formattedNumber);
   
-  // 4. Check tenure
+  // Check tenure
   const tenure = await checkTenure(formattedNumber);
   
   // Generate unique badge ID
   const badgeId = crypto.randomBytes(6).toString('hex').toUpperCase();
   
-  // Create user - ADD verificationDate with current date
+  // Create user - SET verificationDate to NOW upon successful registration
   const user = await User.create({
     phoneNumber: formattedNumber,
     businessName,
     businessAddress,
     businessCity,
     businessCountry,
-    numberVerified: true,
+    numberVerified: numberVerified,
+    // Set verificationDate to current date/time when number is verified
+    verificationDate: new Date(),
     simSwapDetected: simSwap.swappedRecently || false,
     tenureValid: tenure.meetsTenure || false,
     tenureYears: tenure.tenureYears || 1,
@@ -71,15 +98,18 @@ export async function POST(req: NextRequest) {
     },
     badgeId,
     badgeActive: false,
-    verificationDate: null  // Set to null initially, will be set when badge becomes active
+    trustScore: 0,
+    trustGrade: 'F'
   });
+  
+  console.log('User created with verificationDate:', user.verificationDate);
   
   // Create verification log
   await VerificationLog.create({
     userId: user._id,
     type: 'number',
     status: 'success',
-    responseData: numberVerification
+    responseData: { verified: true, method: oauthCode ? 'oauth' : 'direct' }
   });
   
   // Create JWT token
@@ -89,12 +119,13 @@ export async function POST(req: NextRequest) {
     success: true,
     userId: user._id,
     badgeId,
+    verificationDate: user.verificationDate,
     kycData: {
       fullName: kycData.fullName,
       birthdate: kycData.birthdate,
       address: kycData.address
     },
-    businessInfo: {  // ADD business info to response
+    businessInfo: {
       address: businessAddress,
       city: businessCity,
       country: businessCountry

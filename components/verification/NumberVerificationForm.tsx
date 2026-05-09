@@ -2,15 +2,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { Phone, Loader2, X, Info } from 'lucide-react';
+import { Phone, Loader2, X, Info, ArrowRight } from 'lucide-react';
 
 interface NumberVerificationFormProps {
   onSuccess: (userId: string, kycData: any, businessInfo: { address: string; city: string; country: string }) => void;
   onClose: () => void;
 }
-
 
 // African countries list for dropdown
 const AFRICAN_COUNTRIES = [
@@ -65,16 +65,14 @@ const AFRICAN_COUNTRIES = [
   { code: 'CD', name: 'DR Congo' },
 ];
 
-// Simulator test numbers from Nokia documentation
 const SIMULATOR_NUMBERS = [
-  { value: '+99999991000', label: '✅ Verified Number (Success)', verified: true },
+  { value: '+99999991000', label: '✅ Verified Number', verified: true },
   { value: '+99999991001', label: '❌ Not Verified Number', verified: false },
-  { value: '+99999990400', label: '⚠️ Bad Request (400)', verified: false, error: true },
-  { value: '+99999990404', label: '⚠️ Not Found (404)', verified: false, error: true },
-  { value: '+99999990500', label: '⚠️ Server Error (500)', verified: false, error: true },
+  { value: '+99999991002', label: '⚠️ Partial Verification', verified: true },
 ];
 
 export default function NumberVerificationForm({ onSuccess, onClose }: NumberVerificationFormProps) {
+  const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -88,46 +86,60 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
     setLoading(true);
     setError('');
     
-    // Ensure phone number starts with +
     let formattedNumber = phoneNumber;
     if (!formattedNumber.startsWith('+')) {
       formattedNumber = '+' + formattedNumber.replace(/[^0-9]/g, '');
     }
     
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        phoneNumber: formattedNumber, 
-        businessName, 
-        businessAddress,
-        businessCity,
-        businessCountry
-      })
-    });
+    const businessInfo = {
+      phoneNumber: formattedNumber,
+      businessName,
+      businessAddress,
+      businessCity,
+      businessCountry
+    };
     
-    const data = await res.json();
+    sessionStorage.setItem('pendingBusinessInfo', JSON.stringify(businessInfo));
     
-    if (res.ok) {
-      // Pass business info to parent component along with userId and kycData
-      onSuccess(
-        data.userId, 
-        data.kycData,
-        {
-          address: businessAddress,
-          city: businessCity,
-          country: businessCountry
-        }
-      );
-    } else {
-      setError(data.error || 'Registration failed');
+    try {
+      const authRes = await fetch('/api/auth/number-verification/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: formattedNumber,
+          redirectUri: `${window.location.origin}/api/auth/number-verification/callback`
+        })
+      });
+      
+      const authData = await authRes.json();
+      
+      if (!authRes.ok) {
+        throw new Error(authData.error || 'Failed to initialize verification');
+      }
+      
+      // Store that we're in the middle of verification
+      sessionStorage.setItem('verificationInProgress', 'true');
+      sessionStorage.setItem('verificationStartTime', Date.now().toString());
+      
+      // Redirect to Nokia authorization page
+      window.location.href = authData.authUrl;
+      
+    } catch (err: any) {
+      console.error('Verification initiation error:', err);
+      setError(err.message || 'Failed to start verification process');
+      setLoading(false);
+      sessionStorage.removeItem('pendingBusinessInfo');
     }
-    setLoading(false);
   };
 
   const fillSimulatorNumber = (number: string) => {
     setPhoneNumber(number);
     setShowSimulatorHelp(false);
+  };
+
+  const skipToDashboard = () => {
+    onClose();
+    router.push('/dashboard');
   };
 
   return (
@@ -163,7 +175,6 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
         className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg mb-2 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-royal-500 focus:border-transparent"
       />
       
-      {/* Simulator Help Button */}
       <button
         type="button"
         onClick={() => setShowSimulatorHelp(!showSimulatorHelp)}
@@ -173,7 +184,6 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
         <span>Testing? Use simulator numbers</span>
       </button>
       
-      {/* Simulator Numbers Dropdown */}
       {showSimulatorHelp && (
         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-3">
           <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2">Simulator Test Numbers:</p>
@@ -236,7 +246,7 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
         {loading ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            Verifying with Network...
+            Redirecting to verification...
           </>
         ) : (
           'Verify Phone Number →'
@@ -244,8 +254,16 @@ export default function NumberVerificationForm({ onSuccess, onClose }: NumberVer
       </Button>
       
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
-        Using Nokia Network-as-Code API. Test numbers: +99999991000 (verified) or +99999991001 (not verified)
+        You will be redirected to your mobile operator to verify your number.
       </p>
+      {/**
+      <button
+        onClick={skipToDashboard}
+        className="w-full text-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mt-3 py-2 transition"
+      >
+        Skip for now → Complete verification later from dashboard
+      </button>
+       */}
     </Card>
   );
 }
