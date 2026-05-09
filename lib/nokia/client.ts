@@ -1,4 +1,4 @@
-// lib/nokia/client.ts - Updated for Simulator Mode
+// lib/nokia/client.ts - Fixed version
 import axios from 'axios';
 
 const RAPIDAPI_KEY = process.env.NOKIA_API_KEY!;
@@ -15,6 +15,7 @@ export const SIMULATOR_NUMBERS = {
   SERVER_ERROR: '+99999990500',
 } as const;
 
+// IMPORTANT: Use axios with correct headers
 const rapidApiClient = axios.create({
   baseURL: BASE_URL,
   headers: {
@@ -24,6 +25,37 @@ const rapidApiClient = axios.create({
   },
   timeout: 15000
 });
+
+// Add request interceptor for debugging
+rapidApiClient.interceptors.request.use((config) => {
+  console.log('API Request:', {
+    url: config.url,
+    method: config.method,
+    headers: config.headers,
+    data: config.data
+  });
+  return config;
+});
+
+rapidApiClient.interceptors.response.use(
+  (response) => {
+    console.log('API Response:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
+);
 
 /**
  * Number Verification API
@@ -45,7 +77,7 @@ export async function verifyNumber(phoneNumber: string): Promise<{ verified: boo
     if (status === 403) return { verified: false, error: 'Permission denied' };
     if (status === 404) return { verified: false, error: 'Phone number not found' };
     if (status === 500) return { verified: false, error: 'Server error, try again' };
-    return { verified: false, error: 'Verification failed' };
+    return { verified: false, error: error.response?.data?.detail || 'Verification failed' };
   }
 }
 
@@ -103,7 +135,6 @@ export async function checkTenure(phoneNumber: string): Promise<{
   contractType?: string;
   tenureYears?: number;
 }> {
-  // Calculate tenure date (1 year ago for check)
   const tenureDate = new Date();
   tenureDate.setFullYear(tenureDate.getFullYear() - 1);
   
@@ -129,7 +160,7 @@ export async function checkTenure(phoneNumber: string): Promise<{
 /**
  * KYC Fill-in API
  * POST /passthrough/camara/v1/kyc-fill-in/kyc-fill-in/v0.4/fill-in
- * Response: { "name": "Federica Sanchez Arjona", "givenName": "Federica", ... }
+ * Response: { "name": "Federica Sanchez Arjona", ... }
  */
 export async function getKycData(phoneNumber: string): Promise<{
   fullName?: string;
@@ -235,7 +266,7 @@ export async function verifyDeviceLocation(
 }
 
 /**
- * Device Status API (Optional)
+ * Device Status API
  * POST /device-status/v0/connectivity
  * Response: { "connectivityStatus": "CONNECTED_DATA" }
  */

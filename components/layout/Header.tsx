@@ -106,9 +106,11 @@ export default function Header() {
                           Dashboard
                         </Button>
                       </Link>
+                      <Link href="/">
                       <Button variant="danger" size="sm" onClick={logout}>
                         Logout
                       </Button>
+                    </Link>
                     </>
                   ) : (
                     <>
@@ -193,6 +195,7 @@ export default function Header() {
                     </Link>
                   </li>
                   <li>
+                    <Link href="/">
                     <button
                       onClick={() => {
                         logout();
@@ -203,6 +206,7 @@ export default function Header() {
                       <LogOut size={20} />
                       <span className="font-medium">Logout</span>
                     </button>
+                    </Link>
                   </li>
                 </>
               )}
